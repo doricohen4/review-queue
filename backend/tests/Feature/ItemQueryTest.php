@@ -19,10 +19,10 @@ it('rejects unknown filter keys with 422', function () {
         ->assertUnprocessable();
 });
 
-it('ignores the panel query param', function () {
+it('ignores the item query param on the list URL', function () {
     Item::factory()->create(['title' => 'Open in the side panel']);
 
-    $this->getJson('/api/items?panel=12')
+    $this->getJson('/api/items?item=12')
         ->assertOk()
         ->assertJsonPath('meta.total', 1);
 });

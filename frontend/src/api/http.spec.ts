@@ -9,7 +9,9 @@ describe('getJson', () => {
         headers: { 'Content-Type': 'application/json' },
       })
 
-    await expect(getJson<{ total: number }>('/api/items', {}, fetcher)).resolves.toEqual({ total: 2 })
+    await expect(getJson<{ total: number }>('/api/items', {}, fetcher)).resolves.toEqual({
+      total: 2,
+    })
   })
 
   it('throws ApiError when the response is not ok', async () => {

@@ -1,8 +1,11 @@
 import { computed, onMounted, ref, watch } from 'vue'
-import { fetchFilterCatalog, fetchItems } from '@/api/items'
+import { fetchFilterCatalog, fetchItem, fetchItems } from '@/api/items'
 import { useQueryState } from '@/composables/useQueryState'
 import type { FilterCatalog, Item, Paginated } from '@/types/api'
 
+/**
+ * Queue page data: list URL drives GET /api/items; `item=` drives GET /api/items/{id}.
+ */
 export function useQueue() {
   const { state, patch } = useQueryState()
 
@@ -11,24 +14,47 @@ export function useQueue() {
   const catalogError = ref<string | null>(null)
   const error = ref<string | null>(null)
   const searchDraft = ref('')
+  const openItem = ref<Item | null>(null)
+  const openError = ref<string | null>(null)
 
   const statusOptions = computed(() => catalog.value?.status ?? [])
   const selectedStatus = computed(() => state.value.filters.status ?? '')
-  const openId = computed(() => state.value.panel)
-  const openItem = computed(() => {
-    if (openId.value === null || page.value === null) {
-      return null
-    }
-    const id = Number(openId.value)
-    return page.value.data.find((row) => row.id === id) ?? null
-  })
+  const openId = computed(() => state.value.item)
 
+  /** Reload the table from q / filter / sort / page. Does not fetch the open row. */
   async function loadItems(): Promise<void> {
     try {
       error.value = null
       page.value = await fetchItems(state.value)
     } catch (caught) {
       error.value = caught instanceof Error ? caught.message : 'Could not load the queue'
+    }
+  }
+
+  /**
+   * Load the side panel from GET /api/items/{id}.
+   * Missing or invalid `item` clears the panel; 404 lands in openError.
+   */
+  async function loadOpenItem(): Promise<void> {
+    if (openId.value === null) {
+      openItem.value = null
+      openError.value = null
+      return
+    }
+
+    const id = Number(openId.value)
+    if (!Number.isFinite(id) || id < 1) {
+      openItem.value = null
+      openError.value = 'Invalid item id'
+      return
+    }
+
+    try {
+      openError.value = null
+      openItem.value = await fetchItem(id)
+    } catch (caught) {
+      openItem.value = null
+      openError.value = caught instanceof Error ? caught.message : 'Could not load this item'
     }
   }
 
@@ -42,6 +68,7 @@ export function useQueue() {
       catalogError.value = caught instanceof Error ? caught.message : 'Could not load filters'
     }
     await loadItems()
+    await loadOpenItem()
   })
 
   watch(
@@ -57,6 +84,11 @@ export function useQueue() {
     },
   )
 
+  watch(openId, () => {
+    void loadOpenItem()
+  })
+
+  /** Search box is local until submit so typing does not hit the API on every key. */
   function applySearch(): void {
     void patch({ q: searchDraft.value, page: 1 })
   }
@@ -66,11 +98,11 @@ export function useQueue() {
   }
 
   function openPanel(item: Item): void {
-    void patch({ panel: String(item.id) })
+    void patch({ item: String(item.id) })
   }
 
   function closePanel(): void {
-    void patch({ panel: null })
+    void patch({ item: null })
   }
 
   function goToPage(next: number): void {
@@ -83,7 +115,6 @@ export function useQueue() {
   }
 
   return {
-    state,
     page,
     catalogError,
     error,
@@ -92,6 +123,7 @@ export function useQueue() {
     selectedStatus,
     openId,
     openItem,
+    openError,
     applySearch,
     setStatus,
     openPanel,

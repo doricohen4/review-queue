@@ -4,23 +4,29 @@ export type QueryState = {
   sort: string
   page: number
   perPage: number
-  panel: string | null
+  item: string | null
 }
 
 const DEFAULT_SORT = '-created_at'
 const DEFAULT_PER_PAGE = 15
 
-/** Parse the list URL into q, filter[], sort, page, per_page, and UI-only panel. */
+/**
+ * Read the list URL into queue state.
+ * filter[status]=pending becomes filters.status — Vue Router keeps the brackets as the key.
+ */
 export function parseQueryState(search: string): QueryState {
   const params = new URLSearchParams(search.startsWith('?') ? search.slice(1) : search)
   const filters: Record<string, string> = {}
 
+  // Collect only filter[…] keys. Other params (q, page, item) are read by name below.
   for (const [key, value] of params.entries()) {
-    const match = /^filter\[(.+)]$/.exec(key)
-    if (match) {
-      filters[match[1]] = value
+    const filterName = /^filter\[(.+)]$/.exec(key)?.[1]
+    if (filterName !== undefined) {
+      filters[filterName] = value
     }
   }
+
+  const item = params.get('item')
 
   return {
     q: params.get('q') ?? '',
@@ -28,11 +34,14 @@ export function parseQueryState(search: string): QueryState {
     sort: params.get('sort') ?? DEFAULT_SORT,
     page: Number(params.get('page') ?? '1') || 1,
     perPage: Number(params.get('per_page') ?? String(DEFAULT_PER_PAGE)) || DEFAULT_PER_PAGE,
-    panel: params.get('panel'),
+    item: item === null || item === '' ? null : item,
   }
 }
 
-/** Serialize list state. Defaults and empty values stay off the URL. */
+/**
+ * Write queue state back to a query string.
+ * Defaults stay off the URL so `/` means newest page 1 with no filters.
+ */
 export function serializeQueryState(state: QueryState): string {
   const params = new URLSearchParams()
 
@@ -58,14 +67,14 @@ export function serializeQueryState(state: QueryState): string {
     params.set('per_page', String(state.perPage))
   }
 
-  if (state.panel !== null && state.panel !== '') {
-    params.set('panel', state.panel)
+  if (state.item !== null && state.item !== '') {
+    params.set('item', state.item)
   }
 
   return params.toString()
 }
 
-/** Vue Router `query` object from the same serializer. */
+/** Same pairs as serializeQueryState, in the shape Vue Router's `query` option expects. */
 export function queryStateToRouteQuery(state: QueryState): Record<string, string> {
   return Object.fromEntries(new URLSearchParams(serializeQueryState(state)))
 }

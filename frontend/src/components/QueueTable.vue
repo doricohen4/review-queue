@@ -2,6 +2,7 @@
 import { personName, riskLabel } from '@/display/itemDisplay'
 import type { Item } from '@/types/api'
 
+/** One row per item; the title button writes `?item=` via the parent. */
 defineProps<{
   items: Item[]
   openId: string | null

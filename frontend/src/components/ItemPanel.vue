@@ -6,12 +6,14 @@ import type { Item } from '@/types/api'
 const props = defineProps<{
   item: Item | null
   itemId: string
+  error: string | null
 }>()
 
 const emit = defineEmits<{
   close: []
 }>()
 
+/** Status · risk · score — kept out of the template so the markup stays names only. */
 const summary = computed(() => {
   if (props.item === null) {
     return ''
@@ -35,7 +37,8 @@ const showFlags = computed(() => hasFlags(flags.value))
       </ul>
       <p v-else>No heuristic flags.</p>
     </template>
-    <p v-else>Item {{ itemId }} is not on this page.</p>
+    <p v-else-if="error">{{ error }}</p>
+    <p v-else>Loading item {{ itemId }}…</p>
   </aside>
 </template>
 

@@ -7,7 +7,7 @@ describe('queryState', () => {
 
     expect(state.q).toBe('math')
     expect(state.filters.status).toBe('pending')
-    expect(state.panel).toBeNull()
+    expect(state.item).toBeNull()
   })
 
   it('serializes q and filter[status] back onto the query string', () => {
@@ -17,7 +17,7 @@ describe('queryState', () => {
       sort: '-created_at',
       page: 1,
       perPage: 15,
-      panel: null,
+      item: null,
     })
 
     const params = new URLSearchParams(search)
@@ -25,17 +25,17 @@ describe('queryState', () => {
     expect(params.get('filter[status]')).toBe('pending')
   })
 
-  it('round-trips panel as a UI-only param', () => {
+  it('round-trips item as a UI-only param', () => {
     const search = serializeQueryState({
       q: '',
       filters: {},
       sort: '-created_at',
       page: 1,
       perPage: 15,
-      panel: '12',
+      item: '12',
     })
 
-    expect(new URLSearchParams(search).get('panel')).toBe('12')
-    expect(parseQueryState(search).panel).toBe('12')
+    expect(new URLSearchParams(search).get('item')).toBe('12')
+    expect(parseQueryState(search).item).toBe('12')
   })
 })

@@ -1,3 +1,4 @@
+/** Non-OK HTTP response. Callers branch on `status` (404 vs 422) without parsing the message. */
 export class ApiError extends Error {
   readonly status: number
   readonly body: string

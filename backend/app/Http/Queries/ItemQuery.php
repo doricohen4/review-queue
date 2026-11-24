@@ -12,7 +12,7 @@ use Illuminate\Validation\ValidationException;
 
 /**
  * Allow-listed list query. Unknown filter[] / sort → 422.
- * panel is UI-only and never reaches SQL.
+ * item (open row) is UI-only and never reaches SQL.
  */
 final class ItemQuery
 {
@@ -118,7 +118,7 @@ final class ItemQuery
         ];
     }
 
-    /** 422 if filter[] or sort is not on the allow-list (panel is ignored). */
+    /** 422 if filter[] or sort is not on the allow-list (item is ignored). */
     private function assertKnown(Request $request): void
     {
         $filters = $request->query('filter', []);

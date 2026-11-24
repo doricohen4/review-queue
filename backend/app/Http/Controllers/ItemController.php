@@ -17,6 +17,14 @@ use Symfony\Component\HttpFoundation\Response;
 
 class ItemController extends Controller
 {
+    /** GET /api/items/{item} — one queue row for the open panel. */
+    public function show(Item $item): ItemResource
+    {
+        $item->load('submitter');
+
+        return new ItemResource($item);
+    }
+
     /** GET /api/items — paginated queue (filters live in ItemQuery). */
     public function index(Request $request, ItemQuery $query): AnonymousResourceCollection
     {

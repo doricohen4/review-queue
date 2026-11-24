@@ -12,6 +12,7 @@ const {
   selectedStatus,
   openId,
   openItem,
+  openError,
   applySearch,
   setStatus,
   openPanel,
@@ -51,9 +52,15 @@ const {
     <p v-else-if="page === null">Loading queue…</p>
     <p v-else-if="page.data.length === 0">No items match these filters.</p>
 
-    <div v-else class="layout">
+    <div v-else class="layout" :class="{ split: openId !== null }">
       <QueueTable :items="page.data" :open-id="openId" @open="openPanel" />
-      <ItemPanel v-if="openId !== null" :item="openItem" :item-id="openId" @close="closePanel" />
+      <ItemPanel
+        v-if="openId !== null"
+        :item="openItem"
+        :item-id="openId"
+        :error="openError"
+        @close="closePanel"
+      />
     </div>
 
     <p v-if="page" class="pager">
@@ -92,8 +99,11 @@ form,
 }
 .layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(16rem, 20rem);
+  grid-template-columns: minmax(0, 1fr);
   gap: 1rem;
   align-items: start;
+}
+.layout.split {
+  grid-template-columns: minmax(0, 1fr) minmax(16rem, 20rem);
 }
 </style>

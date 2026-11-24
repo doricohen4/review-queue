@@ -9,7 +9,10 @@ import {
 
 export { parseQueryState, serializeQueryState, type QueryState }
 
-/** List URL is the view: q, filter[], sort, page, panel. */
+/**
+ * Bind queue state to the current route.
+ * `state` is parsed from the URL; `patch` replace()s only the query string.
+ */
 export function useQueryState() {
   const route = useRoute()
   const router = useRouter()
@@ -21,6 +24,7 @@ export function useQueryState() {
     return parseQueryState(search)
   })
 
+  /** Merge a partial update into the current query (filters are merged, not replaced). */
   async function patch(partial: Partial<QueryState>): Promise<void> {
     const current = state.value
     const next: QueryState = {
