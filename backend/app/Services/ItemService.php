@@ -2,18 +2,22 @@
 
 namespace App\Services;
 
+use App\Domain\ItemStateMachine;
 use App\Domain\Moderation\HeuristicFlag;
 use App\Domain\Moderation\ModerationPipeline;
 use App\Enums\ItemStatus;
+use App\Exceptions\CannotResubmitException;
+use App\Exceptions\InvalidTransitionException;
 use App\Models\Item;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 
 final class ItemService
 {
-    /** Pipeline is injected so submit() does not new up rules itself. */
+    /** Pipeline scores copy; state machine gates resubmit. */
     public function __construct(
         private readonly ModerationPipeline $pipeline,
+        private readonly ItemStateMachine $stateMachine,
     ) {}
 
     /** Create a pending item: resolve submitter, score text, persist the snapshot. */
@@ -38,6 +42,42 @@ final class ItemService
                 'confidence' => $result->confidence,
                 'suggested_decision' => $result->suggestedDecision,
             ]);
+        });
+    }
+
+    /**
+     * Submitter sends needs_work copy back to pending and stores a new heuristic snapshot.
+     *
+     * @throws CannotResubmitException
+     * @throws InvalidTransitionException
+     */
+    public function resubmit(Item $item, string $title, string $description, string $submitterName): Item
+    {
+        $submitter = User::query()->where('name_key', User::nameKey($submitterName))->first();
+        if ($submitter === null || (int) $submitter->id !== (int) $item->submitter_id) {
+            throw new CannotResubmitException;
+        }
+
+        $this->stateMachine->assertTransition(
+            ItemStatus::from($item->status),
+            ItemStatus::Pending,
+        );
+
+        $result = $this->pipeline->evaluate($title, $description);
+
+        return DB::transaction(function () use ($item, $title, $description, $result): Item {
+            $item->update([
+                'title' => $title,
+                'description' => $description,
+                'status' => ItemStatus::Pending->value,
+                'risk' => $result->risk->value,
+                'risk_score' => $result->riskScore,
+                'flags' => array_map(fn (HeuristicFlag $flag) => $flag->toArray(), $result->flags),
+                'confidence' => $result->confidence,
+                'suggested_decision' => $result->suggestedDecision,
+            ]);
+
+            return $item->refresh()->load('submitter');
         });
     }
 }

@@ -1,6 +1,7 @@
 <?php
 
 use App\Domain\ItemStateMachine;
+use App\Exceptions\NoteRequiredException;
 use App\Models\Item;
 use App\Models\Review;
 use App\Models\User;
@@ -45,6 +46,16 @@ it('rejects a pending item', function () {
 
     expect($result['updated'])->toBe([$item->id])
         ->and($item->fresh()->status)->toBe('rejected');
+});
+
+it('refuses needs_work when the note is missing', function () {
+    $alice = User::factory()->create();
+    $item = pendingItemFor($alice);
+
+    expect(fn () => reviewAsService()->review([$item->id], 'needs_work', null, null, 'Bob Smith'))
+        ->toThrow(NoteRequiredException::class);
+
+    expect($item->fresh()->status)->toBe('pending');
 });
 
 it('sends a pending item to needs_work', function () {

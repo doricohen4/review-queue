@@ -6,6 +6,8 @@ use App\Http\Queries\ItemQuery;
 use App\Http\Requests\ReviewItemsRequest;
 use App\Http\Requests\StoreItemRequest;
 use App\Http\Resources\ItemResource;
+use App\Http\Resources\ReviewResource;
+use App\Models\Item;
 use App\Services\ItemService;
 use App\Services\ReviewService;
 use Illuminate\Http\JsonResponse;
@@ -68,5 +70,26 @@ class ItemController extends Controller
                 'failed_count' => $failedCount,
             ],
         ], $failedCount > 0 ? 207 : Response::HTTP_OK);
+    }
+
+    /** POST /api/items/{item}/resubmit — needs_work → pending, new heuristic snapshot. */
+    public function resubmit(Item $item, StoreItemRequest $request, ItemService $service): ItemResource
+    {
+        $item = $service->resubmit(
+            $item,
+            $request->validated('title'),
+            $request->validated('description'),
+            $request->validated('submitter_name'),
+        );
+
+        return new ItemResource($item);
+    }
+
+    /** GET /api/items/{item}/audit — append-only review notes, oldest first. */
+    public function audit(Item $item): AnonymousResourceCollection
+    {
+        return ReviewResource::collection(
+            $item->reviews()->with('reviewer')->orderBy('id')->paginate(),
+        );
     }
 }

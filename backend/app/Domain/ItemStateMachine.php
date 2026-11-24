@@ -29,12 +29,16 @@ final class ItemStateMachine
         ItemStatus::Cancelled->value => [],
     ];
 
+    /** True if TRANSITIONS lists $to under $from. Empty list = terminal. */
+    public function allows(ItemStatus $from, ItemStatus $to): bool
+    {
+        return in_array($to->value, self::TRANSITIONS[$from->value] ?? [], true);
+    }
+
     /** Throw if $to is not in TRANSITIONS[$from] (empty list = terminal). */
     public function assertTransition(ItemStatus $from, ItemStatus $to): void
     {
-        $allowed = self::TRANSITIONS[$from->value] ?? [];
-
-        if (! in_array($to->value, $allowed, true)) {
+        if (! $this->allows($from, $to)) {
             throw new InvalidTransitionException($from, $to);
         }
     }

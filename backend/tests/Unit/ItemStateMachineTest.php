@@ -4,26 +4,38 @@ use App\Domain\ItemStateMachine;
 use App\Enums\ItemStatus;
 use App\Exceptions\InvalidTransitionException;
 
-it('allows pending to approved', function () {
+/**
+ * @return list<array{0: ItemStatus, 1: ItemStatus}>
+ */
+function legalEdges(): array
+{
+    return [
+        [ItemStatus::Pending, ItemStatus::Approved],
+        [ItemStatus::Pending, ItemStatus::Rejected],
+        [ItemStatus::Pending, ItemStatus::NeedsWork],
+        [ItemStatus::Pending, ItemStatus::Cancelled],
+        [ItemStatus::NeedsWork, ItemStatus::Pending],
+    ];
+}
+
+it('allows only the documented edges', function (ItemStatus $from, ItemStatus $to) {
     $machine = new ItemStateMachine;
+    $ok = collect(legalEdges())->contains(fn (array $edge) => $edge[0] === $from && $edge[1] === $to);
 
-    expect(fn () => $machine->assertTransition(ItemStatus::Pending, ItemStatus::Approved))
-        ->not->toThrow(InvalidTransitionException::class);
-});
+    expect($machine->allows($from, $to))->toBe($ok);
 
-it('rejects approved back to pending', function () {
-    $machine = new ItemStateMachine;
-
-    $machine->assertTransition(ItemStatus::Approved, ItemStatus::Pending);
-})->throws(InvalidTransitionException::class);
-
-it('allows pending to needs_work and needs_work back to pending', function () {
-    $machine = new ItemStateMachine;
-
-    expect(fn () => $machine->assertTransition(ItemStatus::Pending, ItemStatus::NeedsWork))
-        ->not->toThrow(InvalidTransitionException::class);
-    expect(fn () => $machine->assertTransition(ItemStatus::NeedsWork, ItemStatus::Pending))
-        ->not->toThrow(InvalidTransitionException::class);
+    if ($ok) {
+        $machine->assertTransition($from, $to);
+    } else {
+        expect(fn () => $machine->assertTransition($from, $to))
+            ->toThrow(InvalidTransitionException::class);
+    }
+})->with(function () {
+    foreach (ItemStatus::cases() as $from) {
+        foreach (ItemStatus::cases() as $to) {
+            yield "{$from->value} → {$to->value}" => [$from, $to];
+        }
+    }
 });
 
 it('does not define an in_review status', function () {

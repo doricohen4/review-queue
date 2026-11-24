@@ -16,6 +16,14 @@ class ReviewItemsRequest extends FormRequest
         return true;
     }
 
+    /** Trim note so whitespace-only needs_work notes fail requiredIf. */
+    protected function prepareForValidation(): void
+    {
+        if (is_string($this->note)) {
+            $this->merge(['note' => trim($this->note)]);
+        }
+    }
+
     /**
      * Body must be valid before the per-id loop (otherwise 422, not 207).
      *
@@ -32,7 +40,12 @@ class ReviewItemsRequest extends FormRequest
                 ItemStatus::NeedsWork->value,
             ])],
             'risk' => ['nullable', 'string', Rule::enum(RiskLevel::class)],
-            'note' => ['nullable', 'string', 'max:'.ContentLimits::NOTE_MAX],
+            'note' => [
+                Rule::requiredIf(fn () => $this->input('decision') === ItemStatus::NeedsWork->value),
+                'nullable',
+                'string',
+                'max:'.ContentLimits::NOTE_MAX,
+            ],
             'reviewer_name' => ['required', 'string', 'max:'.ContentLimits::NAME_MAX],
         ];
     }

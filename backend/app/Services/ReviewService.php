@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Domain\ItemStateMachine;
 use App\Enums\ItemStatus;
 use App\Exceptions\InvalidTransitionException;
+use App\Exceptions\NoteRequiredException;
 use App\Models\Item;
 use App\Models\Review;
 use App\Models\User;
@@ -36,6 +37,10 @@ final class ReviewService
 
         $items = Item::query()->findMany($ids)->keyBy('id');
         $to = ItemStatus::from($decision);
+
+        if ($to === ItemStatus::NeedsWork && blank($note)) {
+            throw new NoteRequiredException;
+        }
 
         $updated = [];
         $failed = [];
