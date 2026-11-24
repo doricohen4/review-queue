@@ -29,6 +29,7 @@ final class SecurityRule implements ModerationRule
         ],
     ];
 
+    /** Flag XSS-shaped needles; does not strip or sanitize the text. */
     public function evaluate(string $title, string $description): array
     {
         $haystack = mb_strtolower($title.' '.$description);

@@ -5,6 +5,7 @@ namespace App\Domain\Moderation;
 /** Caps / tiny titles — extra score, not a reject by themselves. XSS is SecurityRule. */
 final class StructuralRule implements ModerationRule
 {
+    /** Flag excessive caps and titles shorter than 5 characters. */
     public function evaluate(string $title, string $description): array
     {
         $flags = [];

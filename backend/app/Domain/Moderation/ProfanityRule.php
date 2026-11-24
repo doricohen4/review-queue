@@ -18,12 +18,15 @@ final class ProfanityRule implements ModerationRule
     ];
 
     /**
+     * Default TERMS is empty; tests inject a fake list.
+     *
      * @param  array<string, array{weight: int, reason: string}>  $terms
      */
     public function __construct(
         private readonly array $terms = self::TERMS,
     ) {}
 
+    /** Flag tokens that appear on the (usually empty) product list. */
     public function evaluate(string $title, string $description): array
     {
         $haystack = TokenMapScanner::haystack($title, $description);

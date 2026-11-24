@@ -7,6 +7,8 @@ use App\Enums\RiskLevel;
 readonly class ModerationResult
 {
     /**
+     * Aggregated heuristic snapshot stored on the item.
+     *
      * @param  list<HeuristicFlag>  $flags
      */
     public function __construct(
@@ -18,6 +20,8 @@ readonly class ModerationResult
     ) {}
 
     /**
+     * Flag keys only — handy in Pest without walking the DTO list.
+     *
      * @return list<string>
      */
     public function flagKeys(): array

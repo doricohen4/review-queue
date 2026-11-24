@@ -7,16 +7,15 @@ use App\Enums\RiskLevel;
 final class ModerationPipeline
 {
     /**
+     * Ordered list of rules to run; default() is the production set.
+     *
      * @param  list<ModerationRule>  $rules
      */
     public function __construct(
         private readonly array $rules,
     ) {}
 
-    /**
-     * Extension point — follow-up "add a heuristic" is a class + one line here.
-     * ProfanityRule is already wired; its list stays empty until product defines it.
-     */
+    /** Built-in rules (keyword, structural, security, empty profanity). */
     public static function default(): self
     {
         return new self([
@@ -27,6 +26,7 @@ final class ModerationPipeline
         ]);
     }
 
+    /** Run every rule, cap score at 100, derive risk / suggestion / confidence. */
     public function evaluate(string $title, string $description): ModerationResult
     {
         $flags = [];
@@ -49,6 +49,7 @@ final class ModerationPipeline
         );
     }
 
+    /** Map 0–100 onto low / medium / high / critical. */
     private function riskFor(int $score): RiskLevel
     {
         return match (true) {
@@ -60,6 +61,8 @@ final class ModerationPipeline
     }
 
     /**
+     * How sure we are: one weak flag is low; a heavy flag or 3+ flags is high.
+     *
      * @param  list<HeuristicFlag>  $flags
      */
     private function confidence(array $flags): string

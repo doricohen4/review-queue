@@ -9,12 +9,15 @@ namespace App\Domain\Moderation;
  */
 final class TokenMapScanner
 {
+    /** Lowercase title + description for case-insensitive scans. */
     public static function haystack(string $title, string $description): string
     {
         return mb_strtolower($title.' '.$description);
     }
 
     /**
+     * O(1) lookup of each word against the hash map; skip empty maps.
+     *
      * @param  array<string, array{weight: int, reason: string}>  $map
      * @return list<HeuristicFlag>
      */
@@ -41,7 +44,7 @@ final class TokenMapScanner
     }
 
     /**
-     * Multi-word needles (e.g. "delete all") — substring, not tokens.
+     * Multi-word needles (e.g. "delete all") as substrings, not tokens.
      *
      * @param  array<string, array{weight: int, reason: string}>  $phrases
      * @return list<HeuristicFlag>

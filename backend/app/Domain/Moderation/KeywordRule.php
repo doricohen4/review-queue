@@ -55,6 +55,7 @@ final class KeywordRule implements ModerationRule
         ],
     ];
 
+    /** Flag credential / urgency / destructive language via the token map. */
     public function evaluate(string $title, string $description): array
     {
         $haystack = TokenMapScanner::haystack($title, $description);

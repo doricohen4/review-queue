@@ -26,6 +26,8 @@ class Item extends Model
     use HasFactory;
 
     /**
+     * flags JSON ↔ array; risk_score stays an int.
+     *
      * @return array<string, string>
      */
     protected function casts(): array
@@ -36,11 +38,13 @@ class Item extends Model
         ];
     }
 
+    /** Persona who submitted this row. */
     public function submitter(): BelongsTo
     {
         return $this->belongsTo(User::class, 'submitter_id');
     }
 
+    /** Append-only human decisions (audit timeline). */
     public function reviews(): HasMany
     {
         return $this->hasMany(Review::class);

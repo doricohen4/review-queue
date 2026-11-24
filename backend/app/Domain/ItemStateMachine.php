@@ -29,6 +29,7 @@ final class ItemStateMachine
         ItemStatus::Cancelled->value => [],
     ];
 
+    /** Throw if $to is not in TRANSITIONS[$from] (empty list = terminal). */
     public function assertTransition(ItemStatus $from, ItemStatus $to): void
     {
         $allowed = self::TRANSITIONS[$from->value] ?? [];

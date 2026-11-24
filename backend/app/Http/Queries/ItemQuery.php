@@ -21,6 +21,8 @@ final class ItemQuery
     private const PER_PAGE_MAX = 50;
 
     /**
+     * Allow-listed filter keys and the WHERE each one applies.
+     *
      * @return array<string, \Closure(Builder<Item>, mixed): void>
      */
     private function filters(): array
@@ -35,6 +37,8 @@ final class ItemQuery
     }
 
     /**
+     * Allow-listed sort keys (column + direction + toolbar label).
+     *
      * @return array<string, array{column: string, direction: string, label: string}>
      */
     private function sorts(): array
@@ -50,6 +54,8 @@ final class ItemQuery
     }
 
     /**
+     * Build the list query from the URL and return one page.
+     *
      * @return LengthAwarePaginator<int, Item>
      */
     public function paginate(Request $request): LengthAwarePaginator
@@ -89,7 +95,7 @@ final class ItemQuery
     }
 
     /**
-     * Same keys the list accepts — toolbar should not hard-code them.
+     * Filter/sort options for the toolbar — same keys paginate() accepts.
      *
      * @return array{status: list<array{value: string, label: string}>, risk: list<array{value: string, label: string}>, sort: list<array{value: string, label: string}>}
      */
@@ -112,6 +118,7 @@ final class ItemQuery
         ];
     }
 
+    /** 422 if filter[] or sort is not on the allow-list (panel is ignored). */
     private function assertKnown(Request $request): void
     {
         $filters = $request->query('filter', []);
@@ -138,6 +145,7 @@ final class ItemQuery
         }
     }
 
+    /** Page size from ?per_page=; default 15, max 50. */
     private function perPage(Request $request): int
     {
         $raw = $request->query('per_page');

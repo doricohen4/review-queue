@@ -11,6 +11,8 @@ namespace App\Domain\Moderation;
 interface ModerationRule
 {
     /**
+     * Return zero or more flags for this title + description.
+     *
      * @return list<HeuristicFlag>
      */
     public function evaluate(string $title, string $description): array;

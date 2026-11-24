@@ -12,6 +12,8 @@ use Illuminate\Http\Resources\Json\JsonResource;
 class ItemResource extends JsonResource
 {
     /**
+     * JSON shape for one queue row (submitter only if the query loaded it).
+     *
      * @return array<string, mixed>
      */
     public function toArray(Request $request): array

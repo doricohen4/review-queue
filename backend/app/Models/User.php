@@ -14,6 +14,7 @@ class User extends Model
     /** @use HasFactory<UserFactory> */
     use HasFactory;
 
+    /** Unique lookup key: trim, collapse spaces, lowercase. */
     public static function nameKey(string $name): string
     {
         $collapsed = preg_replace('/\s+/', ' ', trim($name)) ?? '';
@@ -21,11 +22,13 @@ class User extends Model
         return mb_strtolower($collapsed);
     }
 
+    /** Content this person submitted. */
     public function items(): HasMany
     {
         return $this->hasMany(Item::class, 'submitter_id');
     }
 
+    /** Decisions this person made as a reviewer. */
     public function reviews(): HasMany
     {
         return $this->hasMany(Review::class, 'reviewer_id');

@@ -11,11 +11,13 @@ class Review extends Model
 {
     public $timestamps = false;
 
+    /** The queue row this decision is about. */
     public function item(): BelongsTo
     {
         return $this->belongsTo(Item::class);
     }
 
+    /** Persona who approved / rejected / sent back. */
     public function reviewer(): BelongsTo
     {
         return $this->belongsTo(User::class, 'reviewer_id');
