@@ -80,7 +80,7 @@ class ItemController extends Controller
         ], $failedCount > 0 ? 207 : Response::HTTP_OK);
     }
 
-    /** PUT /api/items/{item} — author edits pending copy, or sends needs_work back to pending. */
+    /** PUT /api/items/{item} — author edits pending copy in place (not a reopen). */
     public function update(Item $item, StoreItemRequest $request, ItemService $service): ItemResource
     {
         $item = $service->revise(

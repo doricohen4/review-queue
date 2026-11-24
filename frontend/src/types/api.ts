@@ -1,5 +1,5 @@
 /** Matches App\Enums\ItemStatus. */
-export type ItemStatus = 'pending' | 'approved' | 'rejected' | 'needs_work' | 'cancelled'
+export type ItemStatus = 'pending' | 'approved' | 'rejected' | 'needs_work'
 
 /** Matches App\Enums\RiskLevel — there is no "none". */
 export type RiskLevel = 'low' | 'medium' | 'high' | 'critical'
@@ -68,12 +68,6 @@ export type Paginated<TItem> = {
 
 /** GET /api/items — queue table. */
 export type ItemTablePage = Paginated<Item>
-
-/** GET /api/items/{id} — HTTP envelope around one item. */
-export type ItemPanelResponse = ResourceResponse<Item>
-
-/** Side panel model after parseItem (same fields as a table row today). */
-export type ItemPanelData = Item
 
 export type FilterOption = {
   value: string

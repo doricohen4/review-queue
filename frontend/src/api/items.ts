@@ -50,7 +50,7 @@ export async function fetchItem(id: number, fetcher: typeof fetch = fetch): Prom
   return parseItem(payload.data)
 }
 
-/** PUT /api/items/{id} — submitter edits needs_work copy; status returns to pending. */
+/** PUT /api/items/{id} — submitter edits pending copy in place. */
 export async function updateItem(
   id: number,
   body: SubmitItemBody,
@@ -62,6 +62,32 @@ export async function updateItem(
     fetcher,
   )
   return parseItem(payload.data)
+}
+
+/** POST /api/items/{id}/resubmit — needs_work → pending, new heuristic snapshot. */
+export async function resubmitItem(
+  id: number,
+  body: SubmitItemBody,
+  fetcher: typeof fetch = fetch,
+): Promise<Item> {
+  const payload = await postRequest<SubmitItemBody, ResourceResponse<unknown>>(
+    `/api/items/${id}/resubmit`,
+    body,
+    fetcher,
+  )
+  return parseItem(payload.data)
+}
+
+/** PUT while pending; POST resubmit while needs_work. */
+export function saveAuthorCopy(
+  item: Item,
+  body: SubmitItemBody,
+  fetcher: typeof fetch = fetch,
+): Promise<Item> {
+  if (item.status === 'needs_work') {
+    return resubmitItem(item.id, body, fetcher)
+  }
+  return updateItem(item.id, body, fetcher)
 }
 
 /** POST /api/items — unwraps `{ data }` so the form gets an Item. */

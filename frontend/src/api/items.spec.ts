@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { fetchAudit, fetchItem, submitItem, updateItem } from './items'
+import { fetchAudit, fetchItem, resubmitItem, saveAuthorCopy, submitItem, updateItem } from './items'
 
 describe('fetchItem', () => {
   it('GETs /api/items/:id and unwraps data', async () => {
@@ -57,7 +57,7 @@ describe('fetchAudit', () => {
 })
 
 describe('updateItem', () => {
-  it('PUTs the edited copy for a needs_work item', async () => {
+  it('PUTs the edited copy for a pending item', async () => {
     const fetcher: typeof fetch = async (input, init) => {
       expect(String(input)).toBe('/api/items/12')
       expect(init?.method).toBe('PUT')
@@ -98,6 +98,95 @@ describe('updateItem', () => {
         fetcher,
       ),
     ).resolves.toMatchObject({ id: 12, status: 'pending', title: 'Quiz v2' })
+  })
+})
+
+describe('saveAuthorCopy', () => {
+  it('PUTs pending copy and POSTs needs_work resubmit', async () => {
+    const methods: string[] = []
+    const fetcher: typeof fetch = async (input, init) => {
+      methods.push(`${init?.method} ${String(input)}`)
+      return new Response(
+        JSON.stringify({
+          data: {
+            id: 12,
+            title: 'Quiz v2',
+            description: 'Fractions',
+            status: 'pending',
+            risk: null,
+            risk_score: 8,
+            flags: [],
+            confidence: 'low',
+            suggested_decision: null,
+            created_at: null,
+          },
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      )
+    }
+
+    const pending = {
+      id: 12,
+      title: 'Quiz',
+      description: 'Fractions',
+      status: 'pending' as const,
+      risk: null,
+      risk_score: 8,
+      flags: [],
+      confidence: 'low' as const,
+      suggested_decision: null,
+      latest_comment: null,
+      created_at: null,
+      updated_at: null,
+    }
+    const body = {
+      title: 'Quiz v2',
+      description: 'Fractions',
+      submitter_name: 'Alice Johnson',
+    }
+
+    await saveAuthorCopy(pending, body, fetcher)
+    await saveAuthorCopy({ ...pending, status: 'needs_work' }, body, fetcher)
+
+    expect(methods).toEqual(['PUT /api/items/12', 'POST /api/items/12/resubmit'])
+  })
+})
+
+describe('resubmitItem', () => {
+  it('POSTs /api/items/:id/resubmit', async () => {
+    const fetcher: typeof fetch = async (input, init) => {
+      expect(String(input)).toBe('/api/items/12/resubmit')
+      expect(init?.method).toBe('POST')
+      return new Response(
+        JSON.stringify({
+          data: {
+            id: 12,
+            title: 'Quiz v2',
+            description: 'Fractions',
+            status: 'pending',
+            risk: null,
+            risk_score: 8,
+            flags: [],
+            confidence: 'low',
+            suggested_decision: null,
+            created_at: null,
+          },
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      )
+    }
+
+    await expect(
+      resubmitItem(
+        12,
+        {
+          title: 'Quiz v2',
+          description: 'Fractions',
+          submitter_name: 'Alice Johnson',
+        },
+        fetcher,
+      ),
+    ).resolves.toMatchObject({ id: 12, status: 'pending' })
   })
 })
 

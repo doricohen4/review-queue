@@ -14,5 +14,4 @@ enum ItemStatus: string
     case Approved = 'approved';
     case Rejected = 'rejected';
     case NeedsWork = 'needs_work';
-    case Cancelled = 'cancelled';
 }

@@ -35,6 +35,7 @@ it('GET /api/items/{id} matches the shared ItemResource contract', function () {
                 'confidence',
                 'suggested_decision',
                 'submitter' => ['id', 'name'],
+                'latest_comment',
                 'created_at',
                 'updated_at',
             ],
@@ -49,7 +50,8 @@ it('GET /api/items/{id} matches the shared ItemResource contract', function () {
     expect($data['status'])->toBeIn($statuses)
         ->and($data['risk'])->toBeIn([...$risks, null])
         ->and($risks)->not->toContain('none')
-        ->and($statuses)->not->toContain('in_review');
+        ->and($statuses)->not->toContain('in_review')
+        ->and($statuses)->not->toContain('cancelled');
 });
 
 it('GET /api/items list envelope has data plus the meta the SPA reads', function () {

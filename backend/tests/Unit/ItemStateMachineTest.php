@@ -13,7 +13,6 @@ function legalEdges(): array
         [ItemStatus::Pending, ItemStatus::Approved],
         [ItemStatus::Pending, ItemStatus::Rejected],
         [ItemStatus::Pending, ItemStatus::NeedsWork],
-        [ItemStatus::Pending, ItemStatus::Cancelled],
         [ItemStatus::NeedsWork, ItemStatus::Pending],
     ];
 }
@@ -40,4 +39,8 @@ it('allows only the documented edges', function (ItemStatus $from, ItemStatus $t
 
 it('does not define an in_review status', function () {
     expect(ItemStatus::tryFrom('in_review'))->toBeNull();
+});
+
+it('does not define a cancelled status', function () {
+    expect(ItemStatus::tryFrom('cancelled'))->toBeNull();
 });

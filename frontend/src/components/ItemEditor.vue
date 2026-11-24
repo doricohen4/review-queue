@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { useQuery } from '@tanstack/vue-query'
 import { X } from '@lucide/vue'
-import { fetchAudit, submitItem, updateItem } from '@/api/items'
+import { fetchAudit, saveAuthorCopy, submitItem } from '@/api/items'
 import StatusChip from '@/components/StatusChip.vue'
 import { usePersona } from '@/composables/usePersona'
 import { formatTimestamp, personName } from '@/display/itemDisplay'
 import { DESCRIPTION_MAX, TITLE_MAX } from '@/personas'
-import type { Item, Review } from '@/types/api'
+import { auditQueryKey } from '@/query/queryKeys'
+import type { Item } from '@/types/api'
 import { btnGhost, btnPrimary, fieldFullClass } from '@/ui/classes'
 
 const props = defineProps<{
@@ -23,13 +25,18 @@ const title = ref('')
 const description = ref('')
 const error = ref<string | null>(null)
 const pending = ref(false)
-const comments = ref<Review[]>([])
+
+const auditQuery = useQuery({
+  queryKey: computed(() => auditQueryKey(props.item?.id ?? 0)),
+  queryFn: () => fetchAudit(props.item!.id),
+  enabled: computed(() => props.item !== null),
+})
 
 const isEdit = computed(() => props.item !== null)
 const titleLeft = computed(() => TITLE_MAX - title.value.length)
 const descriptionLeft = computed(() => DESCRIPTION_MAX - description.value.length)
 const latestComment = computed(() => {
-  const withNotes = comments.value.filter((row) => row.note !== null && row.note !== '')
+  const withNotes = (auditQuery.data.value ?? []).filter((row) => row.note !== null && row.note !== '')
   return withNotes.at(-1) ?? null
 })
 
@@ -41,17 +48,8 @@ function fill(item: Item | null): void {
 
 watch(
   () => props.item,
-  async (item) => {
+  (item) => {
     fill(item)
-    comments.value = []
-    if (item === null) {
-      return
-    }
-    try {
-      comments.value = await fetchAudit(item.id)
-    } catch {
-      comments.value = []
-    }
   },
   { immediate: true },
 )
@@ -69,7 +67,7 @@ async function onSubmit(): Promise<void> {
       emit('saved', created)
       return
     }
-    const saved = await updateItem(props.item.id, {
+    const saved = await saveAuthorCopy(props.item, {
       title: title.value,
       description: description.value,
       submitter_name: currentName.value,

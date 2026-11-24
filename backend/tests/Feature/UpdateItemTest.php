@@ -3,7 +3,7 @@
 use App\Models\Item;
 use App\Models\User;
 
-it('updates a needs_work item with PUT and returns it to pending', function () {
+it('does not reopen needs_work with PUT — that command is POST resubmit', function () {
     $alice = User::factory()->create(['name' => 'Alice Johnson', 'name_key' => 'alice johnson']);
     $item = Item::factory()->create([
         'submitter_id' => $alice->id,
@@ -16,14 +16,19 @@ it('updates a needs_work item with PUT and returns it to pending', function () {
         'title' => 'Lab worksheet v2',
         'description' => 'Now with safety warnings.',
         'submitter_name' => 'Alice Johnson',
+    ])->assertUnprocessable();
+
+    expect($item->fresh()->status)->toBe('needs_work')
+        ->and($item->fresh()->title)->toBe('Lab worksheet');
+
+    $this->postJson("/api/items/{$item->id}/resubmit", [
+        'title' => 'Lab worksheet v2',
+        'description' => 'Now with safety warnings.',
+        'submitter_name' => 'Alice Johnson',
     ])
         ->assertOk()
         ->assertJsonPath('data.status', 'pending')
-        ->assertJsonPath('data.title', 'Lab worksheet v2')
-        ->assertJsonPath('data.description', 'Now with safety warnings.');
-
-    expect($item->fresh()->status)->toBe('pending')
-        ->and($item->fresh()->title)->toBe('Lab worksheet v2');
+        ->assertJsonPath('data.title', 'Lab worksheet v2');
 });
 
 it('lets the submitter edit a pending item and keeps it pending', function () {

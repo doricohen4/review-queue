@@ -123,7 +123,7 @@ it('keeps an earlier success when a later id fails', function () {
 
 it('still reviews a later id after an earlier failure', function () {
     $alice = User::factory()->create();
-    $terminal = pendingItemFor($alice, ['status' => 'cancelled']);
+    $terminal = pendingItemFor($alice, ['status' => 'approved']);
     $ok = pendingItemFor($alice);
 
     $result = reviewAsService()->review([$terminal->id, $ok->id], 'approved', null, null, 'Bob Smith');

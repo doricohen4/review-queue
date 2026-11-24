@@ -8,13 +8,11 @@ import {
   hasFlags,
   initials,
   personName,
-  riskLabel,
   submitterHue,
 } from './itemDisplay'
 
 describe('itemDisplay', () => {
-  it('prints a dash when risk or submitter name is missing', () => {
-    expect(riskLabel(null)).toBe('—')
+  it('prints a dash when the submitter name is missing', () => {
     expect(personName(undefined)).toBe('—')
   })
 

@@ -3,10 +3,6 @@ import type { HeuristicFlag } from '@/types/api'
 
 const EMPTY = '—'
 
-export function riskLabel(risk: string | null | undefined, empty = EMPTY): string {
-  return risk == null || risk === '' ? empty : risk
-}
-
 export function samePerson(left: string | undefined, right: string): boolean {
   if (left == null || left === '') {
     return false
@@ -77,10 +73,6 @@ export function initials(name: string | undefined): string {
   const first = parts[0]?.[0] ?? ''
   const last = parts.length > 1 ? (parts[parts.length - 1]?.[0] ?? '') : ''
   return (first + last).toUpperCase()
-}
-
-export function relativeTime(iso: string | null, now = Date.now()): string {
-  return formatTimestamp(iso, now)
 }
 
 /** Recent rows say "just now" / "5m ago"; older rows get a calendar datetime. */

@@ -128,13 +128,6 @@ class DemoSeeder extends Seeder
                 'sparse' => true,
             ],
             [
-                'title' => 'Cancelled duplicate worksheet',
-                'description' => 'Duplicate of the reading worksheet, withdrawn by the submitter.',
-                'submitter' => 'Alice Johnson',
-                'status' => 'cancelled',
-                'created_at' => $now->copy()->subDays(6),
-            ],
-            [
                 'title' => 'Bob-owned pending quiz',
                 'description' => 'Fractions warm-up Bob submitted so a reviewer persona can decide.',
                 'submitter' => 'Bob Smith',

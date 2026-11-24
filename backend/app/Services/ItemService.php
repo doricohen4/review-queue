@@ -7,6 +7,7 @@ use App\Domain\Moderation\HeuristicFlag;
 use App\Domain\Moderation\ModerationPipeline;
 use App\Enums\ItemStatus;
 use App\Exceptions\CannotResubmitException;
+use App\Exceptions\CannotReviseException;
 use App\Exceptions\InvalidTransitionException;
 use App\Models\Item;
 use App\Models\User;
@@ -63,9 +64,10 @@ final class ItemService
     }
 
     /**
-     * Author edits pending copy in place, or sends needs_work copy back to pending.
+     * Author edits pending copy in place and re-runs the heuristic. Status stays pending.
      *
      * @throws CannotResubmitException
+     * @throws CannotReviseException
      * @throws InvalidTransitionException
      */
     public function revise(Item $item, string $title, string $description, string $submitterName): Item
@@ -74,8 +76,9 @@ final class ItemService
 
         $from = ItemStatus::from($item->status);
         if ($from === ItemStatus::NeedsWork) {
-            $this->stateMachine->assertTransition($from, ItemStatus::Pending);
-        } elseif ($from !== ItemStatus::Pending) {
+            throw new CannotReviseException;
+        }
+        if ($from !== ItemStatus::Pending) {
             $this->stateMachine->assertTransition($from, ItemStatus::Pending);
         }
 

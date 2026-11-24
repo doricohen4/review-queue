@@ -27,8 +27,6 @@ const statusTone: Record<string, string> = {
   approved: 'bg-emerald-100 text-emerald-950 dark:bg-emerald-500/20 dark:text-emerald-100',
   rejected: 'bg-rose-100 text-rose-950 dark:bg-rose-500/20 dark:text-rose-100',
   needs_work: 'bg-violet-100 text-violet-950 dark:bg-violet-500/20 dark:text-violet-100',
-  cancelled: 'bg-zinc-200 text-zinc-800 dark:bg-zinc-700 dark:text-zinc-100',
-  in_review: 'bg-indigo-100 text-indigo-950 dark:bg-indigo-500/20 dark:text-indigo-100',
 }
 
 const riskTone: Record<string, string> = {
@@ -43,8 +41,6 @@ const statusIcons = {
   approved: CheckCircle2,
   rejected: XCircle,
   needs_work: Undo2,
-  cancelled: XCircle,
-  in_review: CircleDashed,
 }
 
 const riskIcons = {

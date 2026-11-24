@@ -9,7 +9,7 @@ final class ItemStateMachine
 {
     /**
      * The whole lifecycle in one place. If a move isn't listed, it's illegal.
-     * Empty list = terminal (approved / rejected / cancelled) — can't reopen.
+     * Empty list = terminal (approved / rejected) — can't reopen.
      * needs_work → pending is the only way back (submitter resubmits).
      *
      * @var array<string, list<string>>
@@ -19,14 +19,12 @@ final class ItemStateMachine
             ItemStatus::Approved->value,
             ItemStatus::Rejected->value,
             ItemStatus::NeedsWork->value,
-            ItemStatus::Cancelled->value,
         ],
         ItemStatus::NeedsWork->value => [
             ItemStatus::Pending->value,
         ],
         ItemStatus::Approved->value => [],
         ItemStatus::Rejected->value => [],
-        ItemStatus::Cancelled->value => [],
     ];
 
     /** True if TRANSITIONS lists $to under $from. Empty list = terminal. */
