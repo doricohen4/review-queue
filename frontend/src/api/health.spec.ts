@@ -18,6 +18,6 @@ describe('fetchHealth', () => {
   it('throws when the API is down', async () => {
     const fetcher: typeof fetch = async () => new Response('nope', { status: 500 })
 
-    await expect(fetchHealth(fetcher)).rejects.toThrow('Health check failed: 500')
+    await expect(fetchHealth(fetcher)).rejects.toThrow('Request failed: 500')
   })
 })
