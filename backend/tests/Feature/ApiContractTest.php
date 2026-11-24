@@ -36,6 +36,7 @@ it('GET /api/items/{id} matches the shared ItemResource contract', function () {
                 'suggested_decision',
                 'submitter' => ['id', 'name'],
                 'created_at',
+                'updated_at',
             ],
         ])
         ->json('data');
@@ -85,6 +86,7 @@ it('GET /api/items/filters catalog uses the same enums as ItemResource', functio
                 'status' => ['*' => ['value', 'label']],
                 'risk' => ['*' => ['value', 'label']],
                 'sort' => ['*' => ['value', 'label']],
+                'submitter' => ['*' => ['value', 'label']],
             ],
         ])
         ->json('data');

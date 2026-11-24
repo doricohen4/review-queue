@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Item;
+use App\Models\User;
 
 it('returns pending items when filter[status]=pending', function () {
     Item::factory()->create(['status' => 'pending', 'title' => 'Waiting on review']);
@@ -12,6 +13,20 @@ it('returns pending items when filter[status]=pending', function () {
         ->assertJsonCount(1, 'data')
         ->assertJsonPath('data.0.status', 'pending')
         ->assertJsonPath('data.0.title', 'Waiting on review');
+});
+
+it('ORs comma-separated status and risk filters', function () {
+    Item::factory()->create(['status' => 'pending', 'risk' => 'low', 'title' => 'Open low']);
+    Item::factory()->create(['status' => 'needs_work', 'risk' => 'critical', 'title' => 'Send back']);
+    Item::factory()->create(['status' => 'approved', 'risk' => 'low', 'title' => 'Done']);
+
+    $this->getJson('/api/items?filter[status]=pending,needs_work')
+        ->assertOk()
+        ->assertJsonPath('meta.total', 2);
+
+    $this->getJson('/api/items?filter[risk]=low,medium')
+        ->assertOk()
+        ->assertJsonPath('meta.total', 2);
 });
 
 it('rejects unknown filter keys with 422', function () {
@@ -53,6 +68,11 @@ it('rejects per_page outside 1–50 with 422', function () {
         ->assertUnprocessable();
 });
 
+it('accepts updated_at sort keys from the table headers', function () {
+    $this->getJson('/api/items?sort=-updated_at')->assertOk();
+    $this->getJson('/api/items?sort=updated_at')->assertOk();
+});
+
 it('rejects unknown sort keys with 422', function () {
     $this->getJson('/api/items?sort=not_a_column')
         ->assertUnprocessable();
@@ -70,6 +90,8 @@ it('keeps a stable order when timestamps match', function () {
 });
 
 it('exposes toolbar options from the same registry', function () {
+    $alice = User::factory()->create(['name' => 'Alice Johnson', 'name_key' => 'alice johnson']);
+
     $this->getJson('/api/items/filters')
         ->assertOk()
         ->assertJsonPath('data.status.0.value', 'pending')
@@ -78,8 +100,10 @@ it('exposes toolbar options from the same registry', function () {
                 'status' => [['value', 'label']],
                 'risk' => [['value', 'label']],
                 'sort' => [['value', 'label']],
+                'submitter' => [['value', 'label']],
             ],
-        ]);
+        ])
+        ->assertJsonFragment(['value' => (string) $alice->id, 'label' => 'Alice Johnson']);
 
     foreach ($this->getJson('/api/items/filters')->json('data.sort') as $option) {
         $this->getJson('/api/items?sort='.$option['value'])->assertOk();

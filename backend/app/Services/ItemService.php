@@ -53,16 +53,46 @@ final class ItemService
      */
     public function resubmit(Item $item, string $title, string $description, string $submitterName): Item
     {
-        $submitter = User::query()->where('name_key', User::nameKey($submitterName))->first();
-        if ($submitter === null || (int) $submitter->id !== (int) $item->submitter_id) {
-            throw new CannotResubmitException;
-        }
-
+        $this->assertAuthor($item, $submitterName);
         $this->stateMachine->assertTransition(
             ItemStatus::from($item->status),
             ItemStatus::Pending,
         );
 
+        return $this->storeRevision($item, $title, $description);
+    }
+
+    /**
+     * Author edits pending copy in place, or sends needs_work copy back to pending.
+     *
+     * @throws CannotResubmitException
+     * @throws InvalidTransitionException
+     */
+    public function revise(Item $item, string $title, string $description, string $submitterName): Item
+    {
+        $this->assertAuthor($item, $submitterName);
+
+        $from = ItemStatus::from($item->status);
+        if ($from === ItemStatus::NeedsWork) {
+            $this->stateMachine->assertTransition($from, ItemStatus::Pending);
+        } elseif ($from !== ItemStatus::Pending) {
+            $this->stateMachine->assertTransition($from, ItemStatus::Pending);
+        }
+
+        return $this->storeRevision($item, $title, $description);
+    }
+
+    /** @throws CannotResubmitException */
+    private function assertAuthor(Item $item, string $submitterName): void
+    {
+        $submitter = User::query()->where('name_key', User::nameKey($submitterName))->first();
+        if ($submitter === null || (int) $submitter->id !== (int) $item->submitter_id) {
+            throw new CannotResubmitException;
+        }
+    }
+
+    private function storeRevision(Item $item, string $title, string $description): Item
+    {
         $result = $this->pipeline->evaluate($title, $description);
 
         return DB::transaction(function () use ($item, $title, $description, $result): Item {
@@ -77,7 +107,7 @@ final class ItemService
                 'suggested_decision' => $result->suggestedDecision,
             ]);
 
-            return $item->refresh()->load('submitter');
+            return $item->refresh()->load(['submitter', 'latestComment.reviewer']);
         });
     }
 }

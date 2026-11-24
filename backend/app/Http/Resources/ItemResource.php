@@ -32,7 +32,12 @@ class ItemResource extends JsonResource
                 'id' => $this->submitter->id,
                 'name' => $this->submitter->name,
             ]),
+            'latest_comment' => $this->latestComment === null ? null : [
+                'note' => $this->latestComment->note,
+                'reviewer_name' => $this->latestComment->reviewer?->name,
+            ],
             'created_at' => $this->created_at?->toIso8601String(),
+            'updated_at' => $this->updated_at?->toIso8601String(),
         ];
     }
 }

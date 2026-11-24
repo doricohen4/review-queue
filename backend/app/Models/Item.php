@@ -6,8 +6,10 @@ use Database\Factories\ItemFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 #[Fillable([
     'title',
@@ -48,5 +50,16 @@ class Item extends Model
     public function reviews(): HasMany
     {
         return $this->hasMany(Review::class);
+    }
+
+    /** Newest review that actually left a note. A blank decision does not hide an older note. */
+    public function latestComment(): HasOne
+    {
+        return $this->hasOne(Review::class)->ofMany(
+            ['id' => 'max'],
+            function (Builder $query): void {
+                $query->whereNotNull('note')->where('note', '!=', '');
+            },
+        );
     }
 }

@@ -20,7 +20,7 @@ class ItemController extends Controller
     /** GET /api/items/{item} — one queue row for the open panel. */
     public function show(Item $item): ItemResource
     {
-        $item->load('submitter');
+        $item->load(['submitter', 'latestComment.reviewer']);
 
         return new ItemResource($item);
     }
@@ -48,7 +48,7 @@ class ItemController extends Controller
             $request->validated('submitter_name'),
         );
 
-        $item->load('submitter');
+        $item->load(['submitter', 'latestComment.reviewer']);
 
         return (new ItemResource($item))
             ->response()
@@ -78,6 +78,19 @@ class ItemController extends Controller
                 'failed_count' => $failedCount,
             ],
         ], $failedCount > 0 ? 207 : Response::HTTP_OK);
+    }
+
+    /** PUT /api/items/{item} — author edits pending copy, or sends needs_work back to pending. */
+    public function update(Item $item, StoreItemRequest $request, ItemService $service): ItemResource
+    {
+        $item = $service->revise(
+            $item,
+            $request->validated('title'),
+            $request->validated('description'),
+            $request->validated('submitter_name'),
+        );
+
+        return new ItemResource($item);
     }
 
     /** POST /api/items/{item}/resubmit — needs_work → pending, new heuristic snapshot. */
