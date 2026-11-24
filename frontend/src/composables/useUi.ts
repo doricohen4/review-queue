@@ -24,9 +24,5 @@ export function useUi() {
     editor.value = null
   }
 
-  function closeSubmit(): void {
-    closeEditor()
-  }
-
-  return { editor, navOpen, openSubmit, openEdit, closeEditor, closeSubmit }
+  return { editor, navOpen, openSubmit, openEdit, closeEditor }
 }

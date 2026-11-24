@@ -13,7 +13,6 @@ import {
   formatTimestamp,
   hasFlags,
   personName,
-  samePerson,
 } from '@/display/itemDisplay'
 import type { Item, Review } from '@/types/api'
 import { btnGhost, btnPrimary } from '@/ui/classes'
@@ -35,15 +34,6 @@ const emit = defineEmits<{
 
 const { currentName, canReview: personaCanReview } = usePersona()
 const { openEdit } = useUi()
-
-const isOwnItem = computed(() => {
-  if (props.item === null) {
-    return false
-  }
-  return (
-    props.item.status === 'pending' && samePerson(props.item.submitter?.name, currentName.value)
-  )
-})
 
 const canReview = computed(
   () => props.item !== null && canReviewItem(props.item, currentName.value),
@@ -198,9 +188,6 @@ watch(
             Sent back for edits. Update the copy and send it back to the queue.
           </template>
           <template v-else>You submitted this. You can still update it before it is reviewed.</template>
-        </p>
-        <p v-else-if="isOwnItem" class="text-sm text-zinc-500">
-          You submitted this. Switch persona to review it.
         </p>
         <p v-else-if="!personaCanReview" class="text-sm text-zinc-500">
           This persona can submit, but not review. Switch to a reviewer to decide.

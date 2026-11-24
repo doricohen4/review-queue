@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import {
-  FILTER_NONE,
+  FILTER_EMPTY,
   isAllFiltersSelected,
   parseQueryState,
   selectedFilterSet,
   serializeQueryState,
   splitFilterValues,
   toggleAllFilterValues,
+  summarizeNamedFilters,
   toggleFilterValue,
   toggleSortKey,
 } from './queryState'
@@ -60,12 +61,37 @@ describe('queryState', () => {
     const all = ['pending', 'approved', 'needs_work']
     expect(isAllFiltersSelected('', all)).toBe(true)
     expect(selectedFilterSet('', all)).toEqual(all)
-    expect(toggleAllFilterValues('', all)).toBe(FILTER_NONE)
-    expect(isAllFiltersSelected(FILTER_NONE, all)).toBe(false)
-    expect(selectedFilterSet(FILTER_NONE, all)).toEqual([])
-    expect(toggleAllFilterValues(FILTER_NONE, all)).toBe('')
+    expect(toggleAllFilterValues('', all)).toBe(FILTER_EMPTY)
+    expect(isAllFiltersSelected(FILTER_EMPTY, all)).toBe(false)
+    expect(selectedFilterSet(FILTER_EMPTY, all)).toEqual([])
+    expect(toggleAllFilterValues(FILTER_EMPTY, all)).toBe('')
     expect(toggleFilterValue('', 'pending', all)).toBe('approved,needs_work')
-    expect(toggleFilterValue(FILTER_NONE, 'pending', all)).toBe('pending')
+    expect(toggleFilterValue(FILTER_EMPTY, 'pending', all)).toBe('pending')
+  })
+
+  it('caps named submitter chips at three and reports the rest as +N', () => {
+    const options = [
+      { value: '1', label: 'Alice Johnson' },
+      { value: '2', label: 'Bob Smith' },
+      { value: '3', label: 'Carol Williams' },
+      { value: '4', label: 'Dana Cole' },
+      { value: '5', label: 'Elena Park' },
+    ]
+    expect(summarizeNamedFilters('1,2', options)).toEqual({
+      named: [
+        { value: '1', label: 'Alice Johnson' },
+        { value: '2', label: 'Bob Smith' },
+      ],
+      extra: 0,
+    })
+    expect(summarizeNamedFilters('1,2,3,4,5', options)).toEqual({
+      named: [
+        { value: '1', label: 'Alice Johnson' },
+        { value: '2', label: 'Bob Smith' },
+        { value: '3', label: 'Carol Williams' },
+      ],
+      extra: 2,
+    })
   })
 
   it('toggles a column between asc and desc sort keys', () => {

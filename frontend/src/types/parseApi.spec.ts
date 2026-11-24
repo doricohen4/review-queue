@@ -77,18 +77,6 @@ describe('parseFilterCatalog', () => {
     expect(catalog.status[0]?.value).toBe('pending')
     expect(catalog.submitter[0]?.label).toBe('Alice Johnson')
   })
-
-  it('maps a legacy { filters } payload onto the same catalog', () => {
-    const catalog = parseFilterCatalog({
-      filters: [
-        { key: 'status', options: [{ value: 'pending', label: 'Pending' }] },
-        { key: 'risk', options: [{ value: 'low', label: 'Low' }] },
-      ],
-      sorts: [{ key: '-created_at', label: 'Newest first' }],
-    })
-    expect(catalog.status).toHaveLength(1)
-    expect(catalog.sort[0]?.value).toBe('-created_at')
-  })
 })
 
 describe('parsePaginated', () => {

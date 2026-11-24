@@ -1,176 +1,144 @@
-import { computed, onMounted, ref, watch } from 'vue'
-import { fetchAudit, fetchFilterCatalog, fetchItem, fetchItems, reviewItems } from '@/api/items'
+import { computed, onScopeDispose, ref, watch } from 'vue'
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/vue-query'
+import {
+  fetchAudit,
+  fetchFilterCatalog,
+  fetchItem,
+  fetchItems,
+  reviewItems,
+} from '@/api/items'
 import { usePersona } from '@/composables/usePersona'
 import { useQueryState } from '@/composables/useQueryState'
 import { useToast } from '@/composables/useToast'
-import { applyOptimisticReview, reconcileReviewResult } from '@/review/optimistic'
+import { auditQueryKey, filterCatalogQueryKey, itemQueryKey, itemsQueryKey } from '@/query/queryKeys'
+import { toQueueFilterView } from '@/query/queueFilterView'
 import { toggleSortKey, type SortColumn } from '@/query/queryState'
-import { createSearchCommit, SEARCH_DEBOUNCE_MS, type SearchCommit } from '@/query/searchInput'
-import type { FilterCatalog, Item, ItemPanelData, ItemTablePage, Review } from '@/types/api'
+import { createSearchCommit, SEARCH_DEBOUNCE_MS } from '@/query/searchInput'
+import { applyAuthorEdit } from '@/queue/authorEdit'
+import { executeReview } from '@/queue/executeReview'
+import {
+  clearSelection as emptySelection,
+  pageAllSelected as pageIdsAllSelected,
+  togglePageSelection,
+  toggleSelectedId,
+} from '@/queue/selection'
+import type { Item } from '@/types/api'
 
-/** Module-level so every `useQueue()` call (table, panel, bulk bar) shares one queue. */
-const page = ref<ItemTablePage | null>(null)
-const catalog = ref<FilterCatalog | null>(null)
-const catalogError = ref<string | null>(null)
-const error = ref<string | null>(null)
-const searchDraft = ref('')
-const openItem = ref<ItemPanelData | null>(null)
-const openError = ref<string | null>(null)
-const reviewError = ref<string | null>(null)
-const reviewPending = ref(false)
-const skeleton = ref(true)
-const updating = ref(false)
-const selectedIds = ref<number[]>([])
-const bulkNote = ref('')
-const audit = ref<Review[]>([])
-const focusReview = ref(false)
-
-let bootstrapped = false
-let watching = false
-let searchCommit: SearchCommit | null = null
-let syncingSearchDraft = false
+function errorMessage(error: unknown, fallback: string): string | null {
+  if (error == null) {
+    return null
+  }
+  return error instanceof Error ? error.message : fallback
+}
 
 export function useQueue() {
   const { state, patch } = useQueryState()
   const { currentName } = usePersona()
   const toast = useToast()
+  const queryClient = useQueryClient()
 
-  const statusOptions = computed(() => catalog.value?.status ?? [])
-  const riskOptions = computed(() => catalog.value?.risk ?? [])
-  const sortOptions = computed(() => catalog.value?.sort ?? [])
-  const submitterOptions = computed(() => catalog.value?.submitter ?? [])
-  const selectedStatus = computed(() => state.value.filters.status ?? '')
-  const selectedRisk = computed(() => state.value.filters.risk ?? '')
-  const selectedSubmitter = computed(() => state.value.filters.submitter ?? '')
-  const selectedCreatedAfter = computed(() => state.value.filters.created_after ?? '')
-  const selectedCreatedBefore = computed(() => state.value.filters.created_before ?? '')
-  const selectedSort = computed(() => state.value.sort)
+  const searchDraft = ref(state.value.q)
+  const selectedIds = ref<number[]>([])
+  const focusReview = ref(false)
+  const reviewError = ref<string | null>(null)
+  const reviewPending = ref(false)
+  let syncingSearchDraft = false
+
+  const listKey = computed(() => itemsQueryKey(state.value))
   const openId = computed(() => state.value.item)
+  const openNumericId = computed(() => {
+    if (openId.value === null) {
+      return null
+    }
+    const id = Number(openId.value)
+    return Number.isFinite(id) && id >= 1 ? id : null
+  })
+
+  const catalogQuery = useQuery({
+    queryKey: filterCatalogQueryKey,
+    queryFn: fetchFilterCatalog,
+  })
+
+  const itemsQuery = useQuery({
+    queryKey: listKey,
+    queryFn: () => fetchItems(state.value),
+    placeholderData: keepPreviousData,
+  })
+
+  const itemQuery = useQuery({
+    queryKey: computed(() => itemQueryKey(openNumericId.value ?? 0)),
+    queryFn: () => fetchItem(openNumericId.value as number),
+    enabled: computed(() => openNumericId.value !== null),
+  })
+
+  const auditQuery = useQuery({
+    queryKey: computed(() => auditQueryKey(openNumericId.value ?? 0)),
+    queryFn: () => fetchAudit(openNumericId.value as number),
+    enabled: computed(() => openNumericId.value !== null),
+  })
+
+  const page = computed(() => itemsQuery.data.value ?? null)
+  const catalogError = computed(() => errorMessage(catalogQuery.error.value, 'Could not load filters'))
+  const error = computed(() => errorMessage(itemsQuery.error.value, 'Could not load the queue'))
+  const skeleton = computed(() => itemsQuery.isPending.value && page.value === null)
+  const updating = computed(() => itemsQuery.isFetching.value && page.value !== null)
+  const openItem = computed(() => (openNumericId.value === null ? null : (itemQuery.data.value ?? null)))
+  const audit = computed(() => auditQuery.data.value ?? [])
+  const openError = computed(() => {
+    if (openId.value === null) {
+      return null
+    }
+    if (openNumericId.value === null) {
+      return 'Invalid item id'
+    }
+    return errorMessage(itemQuery.error.value, 'Could not load this item')
+  })
+
+  const filterView = computed(() =>
+    toQueueFilterView(state.value.filters, {
+      status: catalogQuery.data.value?.status ?? [],
+      risk: catalogQuery.data.value?.risk ?? [],
+      submitter: catalogQuery.data.value?.submitter ?? [],
+    }),
+  )
+  const selectedSort = computed(() => state.value.sort)
   const selectedCount = computed(() => selectedIds.value.length)
   const pageIds = computed(() => page.value?.data.map((item) => item.id) ?? [])
-  const pageAllSelected = computed(
-    () => pageIds.value.length > 0 && pageIds.value.every((id) => selectedIds.value.includes(id)),
+  const pageAllSelected = computed(() => pageIdsAllSelected(pageIds.value, selectedIds.value))
+
+  const searchCommit = createSearchCommit(SEARCH_DEBOUNCE_MS, (value) => {
+    if (value === state.value.q) {
+      return
+    }
+    void patch({ q: value, page: 1 })
+  })
+  onScopeDispose(() => searchCommit.cancel())
+
+  watch(searchDraft, (value) => {
+    if (syncingSearchDraft) {
+      return
+    }
+    searchCommit.push(value)
+  })
+  watch(
+    () => state.value.q,
+    (q) => {
+      if (q === searchDraft.value) {
+        return
+      }
+      searchCommit.cancel()
+      syncingSearchDraft = true
+      searchDraft.value = q
+      syncingSearchDraft = false
+    },
   )
 
-  async function loadItems(): Promise<void> {
-    updating.value = !skeleton.value
-    try {
-      error.value = null
-      page.value = await fetchItems(state.value)
-    } catch (caught) {
-      console.error('Failed to load the queue', caught)
-      error.value = caught instanceof Error ? caught.message : 'Could not load the queue'
-    } finally {
-      skeleton.value = false
-      updating.value = false
-    }
+  async function invalidateQueue(): Promise<void> {
+    await queryClient.invalidateQueries({ queryKey: ['items'] })
+    await queryClient.invalidateQueries({ queryKey: ['item'] })
+    await queryClient.invalidateQueries({ queryKey: ['audit'] })
+    await queryClient.invalidateQueries({ queryKey: filterCatalogQueryKey })
   }
-
-  async function loadOpenItem(): Promise<void> {
-    if (openId.value === null) {
-      openItem.value = null
-      openError.value = null
-      audit.value = []
-      focusReview.value = false
-      return
-    }
-
-    const id = Number(openId.value)
-    if (!Number.isFinite(id) || id < 1) {
-      openItem.value = null
-      openError.value = 'Invalid item id'
-      audit.value = []
-      return
-    }
-
-    try {
-      openError.value = null
-      openItem.value = await fetchItem(id)
-      try {
-        audit.value = await fetchAudit(id)
-      } catch (caught) {
-        console.error('Failed to load audit', caught)
-        audit.value = []
-      }
-    } catch (caught) {
-      console.error('Failed to load the open item', caught)
-      openItem.value = null
-      openError.value = caught instanceof Error ? caught.message : 'Could not load this item'
-      audit.value = []
-    }
-  }
-
-  async function refresh(): Promise<void> {
-    skeleton.value = true
-    await loadItems()
-    await loadOpenItem()
-  }
-
-  if (!watching) {
-    watching = true
-    searchCommit = createSearchCommit(SEARCH_DEBOUNCE_MS, (value) => {
-      if (value === state.value.q) {
-        return
-      }
-      void patch({ q: value, page: 1 })
-    })
-    watch(searchDraft, (value) => {
-      if (syncingSearchDraft) {
-        return
-      }
-      searchCommit?.push(value)
-    })
-    watch(
-      () => state.value.q,
-      (q) => {
-        if (q === searchDraft.value) {
-          return
-        }
-        searchCommit?.cancel()
-        syncingSearchDraft = true
-        searchDraft.value = q
-        syncingSearchDraft = false
-      },
-    )
-    watch(
-      () => [
-        state.value.q,
-        state.value.filters.status,
-        state.value.filters.risk,
-        state.value.filters.submitter,
-        state.value.filters.created_after,
-        state.value.filters.created_before,
-        state.value.sort,
-        state.value.page,
-        state.value.perPage,
-      ],
-      () => {
-        void loadItems()
-      },
-    )
-    watch(openId, () => {
-      void loadOpenItem()
-    })
-  }
-
-  onMounted(() => {
-    if (bootstrapped) {
-      return
-    }
-    bootstrapped = true
-    searchDraft.value = state.value.q
-    void (async () => {
-      try {
-        catalog.value = await fetchFilterCatalog()
-        catalogError.value = null
-      } catch (caught) {
-        catalog.value = null
-        catalogError.value =
-          caught instanceof Error ? caught.message : 'Could not load filters'
-      }
-      await refresh()
-    })()
-  })
 
   function applySearch(): void {
     searchCommit?.cancel()
@@ -211,112 +179,69 @@ export function useQueue() {
 
   function onCreated(item: Item): void {
     void patch({ page: 1, item: String(item.id) }).then(async () => {
-      await refresh()
+      await invalidateQueue()
     })
   }
 
   async function onEdited(item: Item): Promise<void> {
-    openItem.value = item
     toast.push('Edits saved. Back in the queue.', 'success')
-    await loadItems()
-    await loadOpenItem()
+    await applyAuthorEdit(queryClient, item)
   }
 
   function toggleSelected(id: number): void {
-    selectedIds.value = selectedIds.value.includes(id)
-      ? selectedIds.value.filter((value) => value !== id)
-      : [...selectedIds.value, id]
+    selectedIds.value = toggleSelectedId(selectedIds.value, id)
   }
 
   function togglePage(): void {
-    if (pageAllSelected.value) {
-      selectedIds.value = selectedIds.value.filter((id) => !pageIds.value.includes(id))
-      return
-    }
-    selectedIds.value = [...new Set([...selectedIds.value, ...pageIds.value])]
+    selectedIds.value = togglePageSelection(selectedIds.value, pageIds.value, pageAllSelected.value)
   }
 
   function clearSelection(): void {
-    selectedIds.value = []
+    selectedIds.value = emptySelection()
   }
 
   async function reviewIds(
     ids: number[],
     payload: { decision: string; note: string | null },
   ): Promise<void> {
-    if (ids.length === 0) {
+    if (ids.length === 0 || page.value === null) {
+      return
+    }
+
+    if (payload.decision === 'needs_work' && (payload.note == null || payload.note.trim() === '')) {
+      reviewError.value = 'A note is required for needs work.'
+      toast.push(reviewError.value, 'error')
       return
     }
 
     reviewPending.value = true
     reviewError.value = null
-    toast.push(
-      ids.length === 1 ? 'Submitting review…' : `Submitting ${ids.length} reviews…`,
-      'info',
-    )
 
-    const snapshot = page.value
-    if (snapshot !== null) {
-      const { next, previous } = applyOptimisticReview(snapshot.data, ids, payload.decision)
-      page.value = { ...snapshot, data: next }
-      if (openItem.value !== null && ids.includes(openItem.value.id)) {
-        const updated = next.find((item) => item.id === openItem.value?.id)
-        if (updated !== undefined) {
-          openItem.value = updated
-        }
-      }
+    const result = await executeReview({
+      items: page.value.data,
+      openItem: openItem.value,
+      selectedIds: selectedIds.value,
+      ids,
+      decision: payload.decision,
+      note: payload.note,
+      reviewerName: currentName.value,
+      reviewItems,
+    })
 
-      try {
-        const result = await reviewItems({
-          ids,
-          decision: payload.decision,
-          risk: null,
-          note: payload.note,
-          reviewer_name: currentName.value,
-        })
-        const failedIds = result.data.failed.map((row) => row.id)
-        page.value = {
-          ...page.value,
-          data: reconcileReviewResult(page.value.data, previous, failedIds),
-        }
-        if (result.meta.failed_count === 0) {
-          toast.push(
-            ids.length === 1
-              ? 'Review submitted.'
-              : `All ${result.meta.updated_count} reviews submitted.`,
-            'success',
-          )
-          selectedIds.value = selectedIds.value.filter((id) => !ids.includes(id))
-        } else {
-          const reason = result.data.failed[0]?.reason
-          reviewError.value = reason ?? 'Review failed'
-          toast.push(
-            `${result.meta.updated_count} updated, ${result.meta.failed_count} failed${reason ? `: ${reason}` : '.'}`,
-            'error',
-          )
-        }
-        await loadItems()
-        await loadOpenItem()
-      } catch (caught) {
-        page.value = {
-          ...page.value,
-          data: reconcileReviewResult(page.value.data, previous, ids),
-        }
-        if (openItem.value !== null && ids.includes(openItem.value.id)) {
-          const status = previous.get(openItem.value.id)
-          if (status !== undefined) {
-            openItem.value = { ...openItem.value, status }
-          }
-        }
-        reviewError.value = caught instanceof Error ? caught.message : 'Could not review'
-        toast.push(reviewError.value, 'error')
-      } finally {
-        reviewPending.value = false
-      }
-      return
+    queryClient.setQueryData(listKey.value, {
+      ...page.value,
+      data: result.items,
+    })
+    if (result.openItem !== null && openNumericId.value !== null) {
+      queryClient.setQueryData(itemQueryKey(openNumericId.value), result.openItem)
     }
-
+    selectedIds.value = result.selectedIds
+    if (result.kind !== 'success') {
+      reviewError.value = result.error
+    }
+    toast.push(result.toast.message, result.toast.tone)
     reviewPending.value = false
+    await invalidateQueue()
   }
 
   async function reviewOpen(payload: { decision: string; note: string | null }): Promise<void> {
@@ -326,9 +251,9 @@ export function useQueue() {
     await reviewIds([openItem.value.id], payload)
   }
 
-  async function reviewSelected(decision: string): Promise<void> {
-    const note = decision === 'needs_work' ? bulkNote.value : bulkNote.value === '' ? null : bulkNote.value
-    await reviewIds(selectedIds.value, { decision, note })
+  async function reviewSelected(decision: string, note: string): Promise<void> {
+    const normalized = decision === 'needs_work' ? note : note === '' ? null : note
+    await reviewIds(selectedIds.value, { decision, note: normalized })
   }
 
   function goToPage(next: number): void {
@@ -341,22 +266,13 @@ export function useQueue() {
   }
 
   return {
-    state,
     page,
     catalogError,
     error,
     searchDraft,
     skeleton,
     updating,
-    statusOptions,
-    riskOptions,
-    sortOptions,
-    submitterOptions,
-    selectedStatus,
-    selectedRisk,
-    selectedSubmitter,
-    selectedCreatedAfter,
-    selectedCreatedBefore,
+    filterView,
     selectedSort,
     openId,
     openItem,
@@ -368,14 +284,12 @@ export function useQueue() {
     selectedIds,
     selectedCount,
     pageAllSelected,
-    bulkNote,
     applySearch,
     setFilter,
     setFilters,
     setSort,
     toggleColumnSort,
     setPerPage,
-    refresh,
     openPanel,
     closePanel,
     goToPage,

@@ -3,7 +3,6 @@ import { computed } from 'vue'
 import { MoreHorizontal } from '@lucide/vue'
 import AppMenu from '@/components/ui/AppMenu.vue'
 import { usePersona } from '@/composables/usePersona'
-import { useQueue } from '@/composables/useQueue'
 import { useUi } from '@/composables/useUi'
 import { canEditItem, canReviewItem } from '@/display/itemDisplay'
 import type { Item } from '@/types/api'
@@ -12,8 +11,12 @@ const props = defineProps<{
   item: Item
 }>()
 
+const emit = defineEmits<{
+  open: [item: Item, options?: { review?: boolean }]
+  quick: [item: Item, decision: string]
+}>()
+
 const { currentName } = usePersona()
-const { openPanel, reviewIds } = useQueue()
 const { openEdit } = useUi()
 
 const canReview = computed(() => canReviewItem(props.item, currentName.value))
@@ -33,7 +36,7 @@ const quick = computed(() => {
 })
 
 function runQuick(decision: string, close: () => void): void {
-  void reviewIds([props.item.id], { decision, note: null })
+  emit('quick', props.item, decision)
   close()
 }
 </script>
@@ -56,7 +59,7 @@ function runQuick(decision: string, close: () => void): void {
       <button
         type="button"
         class="block w-full rounded-lg px-2.5 py-2 text-left text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800"
-        @click="openPanel(item); close()"
+        @click="emit('open', item); close()"
       >
         Open details
       </button>
@@ -72,7 +75,7 @@ function runQuick(decision: string, close: () => void): void {
         v-if="canReview"
         type="button"
         class="block w-full rounded-lg px-2.5 py-2 text-left text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800"
-        @click="openPanel(item, { review: true }); close()"
+        @click="emit('open', item, { review: true }); close()"
       >
         Review…
       </button>

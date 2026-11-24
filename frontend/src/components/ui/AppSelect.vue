@@ -37,6 +37,8 @@ function labelFor(value: string): string {
         <button
           type="button"
           class="flex h-9 w-full cursor-pointer items-center justify-between gap-2 rounded-lg border border-zinc-200 bg-white px-3 text-left text-sm text-zinc-900 shadow-sm dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+          :aria-label="label ?? placeholder ?? 'Select'"
+          :data-testid="label === 'Acting as' ? 'persona-select' : undefined"
         >
           <span class="min-w-0 truncate">{{ labelFor(modelValue) }}</span>
           <ChevronDown class="size-4 shrink-0 text-zinc-400" />
@@ -49,6 +51,7 @@ function labelFor(value: string): string {
           type="button"
           class="flex w-full cursor-pointer items-center justify-between rounded-lg px-2.5 py-2 text-left text-sm text-zinc-800 hover:bg-zinc-100 dark:text-zinc-100 dark:hover:bg-zinc-800"
           role="option"
+          :data-testid="label === 'Acting as' ? `persona-${option.value}` : undefined"
           @click="choose(close, option.value)"
         >
           {{ option.label }}

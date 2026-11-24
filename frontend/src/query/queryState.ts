@@ -14,13 +14,13 @@ export type SortColumn = 'title' | 'created_at' | 'updated_at' | 'risk_score'
 
 /**
  * `filter[status]=pending,needs_work` is one URL param (OR on the API).
- * Empty string = all options. `__none__` is explicit “nothing selected” (empty list),
+ * Empty string / omitted = all options. `-` is explicit “nothing selected”,
  * because omitting the param also means “all”.
  */
-export const FILTER_NONE = '__none__'
+export const FILTER_EMPTY = '-'
 
 export function splitFilterValues(raw: string): string[] {
-  if (raw === FILTER_NONE) {
+  if (raw === FILTER_EMPTY) {
     return []
   }
   return raw
@@ -29,9 +29,25 @@ export function splitFilterValues(raw: string): string[] {
     .filter((part) => part !== '')
 }
 
-/** Empty URL filter means every option is on. `__none__` means every option is off. */
+/** Chip bar / filter badge: at most three names, then `extra` for “+N”. */
+export const FILTER_NAME_CHIP_LIMIT = 3
+
+export function summarizeNamedFilters(
+  raw: string,
+  options: { value: string; label: string }[],
+  limit = FILTER_NAME_CHIP_LIMIT,
+): { named: { value: string; label: string }[]; extra: number } {
+  const values = splitFilterValues(raw)
+  const named = values.slice(0, limit).map((value) => ({
+    value,
+    label: options.find((option) => option.value === value)?.label ?? value,
+  }))
+  return { named, extra: Math.max(0, values.length - named.length) }
+}
+
+/** Empty URL filter means every option is on. `-` means every option is off. */
 export function selectedFilterSet(raw: string, allValues: string[]): string[] {
-  if (raw === FILTER_NONE) {
+  if (raw === FILTER_EMPTY) {
     return []
   }
   if (raw === '') {
@@ -41,7 +57,7 @@ export function selectedFilterSet(raw: string, allValues: string[]): string[] {
 }
 
 export function isAllFiltersSelected(raw: string, allValues: string[]): boolean {
-  if (raw === FILTER_NONE) {
+  if (raw === FILTER_EMPTY) {
     return false
   }
   if (raw === '') {
@@ -56,7 +72,7 @@ export function isAllFiltersSelected(raw: string, allValues: string[]): boolean 
 
 function serializeFilterSet(selected: Set<string>, allValues: string[]): string {
   if (selected.size === 0) {
-    return FILTER_NONE
+    return FILTER_EMPTY
   }
   if (allValues.length > 0 && allValues.every((value) => selected.has(value))) {
     return ''
@@ -65,7 +81,7 @@ function serializeFilterSet(selected: Set<string>, allValues: string[]): string 
 }
 
 export function toggleAllFilterValues(raw: string, allValues: string[]): string {
-  return isAllFiltersSelected(raw, allValues) ? FILTER_NONE : ''
+  return isAllFiltersSelected(raw, allValues) ? FILTER_EMPTY : ''
 }
 
 export function toggleFilterValue(raw: string, value: string, allValues: string[] = []): string {

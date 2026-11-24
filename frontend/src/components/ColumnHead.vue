@@ -62,7 +62,7 @@ const sortState = computed(() => {
         </button>
       </template>
       <template #default="{ close }">
-        <div class="min-w-44 p-1" @click.stop>
+        <div class="min-w-44 p-1" @pointerdown.stop @click.stop>
           <slot name="filter" :close="close" />
         </div>
       </template>

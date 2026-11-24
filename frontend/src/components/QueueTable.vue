@@ -4,42 +4,38 @@ import ColumnHead from '@/components/ColumnHead.vue'
 import DateRangePicker from '@/components/DateRangePicker.vue'
 import FilterChecks from '@/components/FilterChecks.vue'
 import ItemKebab from '@/components/ItemKebab.vue'
+import QueueItemCopy from '@/components/QueueItemCopy.vue'
 import StatusChip from '@/components/StatusChip.vue'
-import { useQueue } from '@/composables/useQueue'
 import { formatTimestamp, initials, personName, submitterHue } from '@/display/itemDisplay'
-import { FILTER_NONE, splitFilterValues } from '@/query/queryState'
+import type { QueueFilterView } from '@/query/queueFilterView'
+import { FILTER_EMPTY, splitFilterValues, type SortColumn } from '@/query/queryState'
 import type { Item } from '@/types/api'
-defineProps<{
+
+const props = defineProps<{
   items: Item[]
+  openId: string | null
+  selectedSort: string
+  filters: QueueFilterView
+  selectedIds: number[]
+  selectedCount: number
+  pageAllSelected: boolean
 }>()
 
-const {
-  openId,
-  selectedSort,
-  selectedStatus,
-  selectedRisk,
-  selectedSubmitter,
-  selectedCreatedAfter,
-  selectedCreatedBefore,
-  statusOptions,
-  riskOptions,
-  submitterOptions,
-  selectedIds,
-  selectedCount,
-  pageAllSelected,
-  setFilter,
-  setFilters,
-  toggleColumnSort,
-  toggleSelected,
-  togglePage,
-  openPanel,
-} = useQueue()
+const emit = defineEmits<{
+  filter: [key: string, value: string]
+  filters: [partial: Record<string, string>]
+  sort: [column: SortColumn]
+  toggleSelected: [id: number]
+  togglePage: []
+  open: [item: Item, options?: { review?: boolean }]
+  quick: [item: Item, decision: string]
+}>()
 
 function joinedLabels(
   raw: string,
   options: { value: string; label: string }[],
 ): string | undefined {
-  if (raw === FILTER_NONE) {
+  if (raw === FILTER_EMPTY) {
     return 'None'
   }
   const values = splitFilterValues(raw)
@@ -58,22 +54,20 @@ function joinedLabels(
 const headCell =
   'sticky top-0 z-10 border-b border-zinc-200 bg-white px-4 py-3 dark:border-zinc-800 dark:bg-zinc-900'
 
-const statusLabel = computed(() => joinedLabels(selectedStatus.value, statusOptions.value))
-const riskLabel = computed(() => joinedLabels(selectedRisk.value, riskOptions.value))
-const submitterLabel = computed(() => joinedLabels(selectedSubmitter.value, submitterOptions.value))
+const statusLabel = computed(() => joinedLabels(props.filters.status, props.filters.statusOptions))
+const riskLabel = computed(() => joinedLabels(props.filters.risk, props.filters.riskOptions))
+const submitterLabel = computed(() =>
+  joinedLabels(props.filters.submitter, props.filters.submitterOptions),
+)
 const createdLabel = computed(() => {
-  if (selectedCreatedAfter.value !== '' && selectedCreatedBefore.value !== '') {
-    return `${selectedCreatedAfter.value}–${selectedCreatedBefore.value}`
+  if (props.filters.createdAfter !== '' && props.filters.createdBefore !== '') {
+    return `${props.filters.createdAfter}–${props.filters.createdBefore}`
   }
-  return selectedCreatedAfter.value || selectedCreatedBefore.value || undefined
+  return props.filters.createdAfter || props.filters.createdBefore || undefined
 })
 
-function onFilter(key: string, value: string): void {
-  setFilter(key, value)
-}
-
 function isSelected(id: number): boolean {
-  return selectedIds.value.includes(id)
+  return props.selectedIds.includes(id)
 }
 </script>
 
@@ -84,7 +78,7 @@ function isSelected(id: number): boolean {
         type="checkbox"
         class="cursor-pointer accent-orange-500"
         :checked="pageAllSelected"
-        @change="togglePage()"
+        @change="emit('togglePage')"
       />
       Select this page
       <span v-if="selectedCount > 0" class="text-orange-700 dark:text-orange-300">
@@ -109,14 +103,10 @@ function isSelected(id: number): boolean {
         :checked="isSelected(item.id)"
         :aria-label="`Select ${item.title}`"
         @click.stop
-        @change="toggleSelected(item.id)"
+        @change="emit('toggleSelected', item.id)"
       />
-      <button type="button" class="min-w-0 flex-1 cursor-pointer text-left" @click="openPanel(item)">
-        <p class="font-medium">{{ item.title }}</p>
-        <p class="mt-1 line-clamp-2 text-sm text-zinc-500">{{ item.description }}</p>
-        <p v-if="item.latest_comment" class="mt-1 line-clamp-2 text-xs text-orange-800 dark:text-orange-200">
-          {{ item.latest_comment.reviewer_name ?? 'Reviewer' }}: {{ item.latest_comment.note }}
-        </p>
+      <button type="button" class="min-w-0 flex-1 cursor-pointer text-left" @click="emit('open', item)">
+        <QueueItemCopy :item="item" />
         <div class="mt-3 flex flex-wrap items-center gap-2">
           <StatusChip :status="item.status" />
           <StatusChip v-if="item.risk" :risk="item.risk" />
@@ -124,7 +114,7 @@ function isSelected(id: number): boolean {
         </div>
       </button>
       <div @click.stop>
-        <ItemKebab :item="item" />
+        <ItemKebab :item="item" @open="(row, options) => emit('open', row, options)" @quick="(row, decision) => emit('quick', row, decision)" />
       </div>
     </div>
   </div>
@@ -132,7 +122,18 @@ function isSelected(id: number): boolean {
   <div
     class="hidden min-h-0 flex-1 overflow-auto rounded-xl border border-zinc-200 bg-white md:block dark:border-zinc-800 dark:bg-zinc-900"
   >
-    <table class="w-full min-w-[960px] border-separate border-spacing-0 text-left text-sm">
+    <table
+      class="w-full min-w-[1100px] table-fixed border-separate border-spacing-0 text-left text-sm"
+    >
+      <colgroup>
+        <col class="w-10" />
+        <col />
+        <col class="w-44" />
+        <col class="w-36" />
+        <col class="w-32" />
+        <col class="w-32" />
+        <col class="w-32" />
+      </colgroup>
       <thead class="sticky top-0 z-10 text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
         <tr>
           <th :class="headCell" class="w-10 px-3">
@@ -141,7 +142,7 @@ function isSelected(id: number): boolean {
               class="cursor-pointer accent-orange-500"
               :checked="pageAllSelected"
               aria-label="Select this page"
-              @change="togglePage()"
+              @change="emit('togglePage')"
             />
           </th>
           <th :class="headCell">
@@ -149,21 +150,21 @@ function isSelected(id: number): boolean {
               label="Title"
               sort-column="title"
               :selected-sort="selectedSort"
-              @sort="toggleColumnSort('title')"
+              @sort="emit('sort', 'title')"
             />
           </th>
           <th :class="headCell">
             <ColumnHead
               label="Submitter"
               :selected-sort="selectedSort"
-              :filter-active="selectedSubmitter !== ''"
+              :filter-active="filters.submitter !== ''"
               :filter-label="submitterLabel"
             >
-              <template #filter="{ close }">
+              <template #filter>
                 <FilterChecks
-                  :options="submitterOptions"
-                  :selected="selectedSubmitter"
-                  @choose="onFilter('submitter', $event)"
+                  :options="filters.submitterOptions"
+                  :selected="filters.submitter"
+                  @choose="emit('filter', 'submitter', $event)"
                 />
               </template>
             </ColumnHead>
@@ -172,14 +173,14 @@ function isSelected(id: number): boolean {
             <ColumnHead
               label="Status"
               :selected-sort="selectedSort"
-              :filter-active="selectedStatus !== ''"
+              :filter-active="filters.status !== ''"
               :filter-label="statusLabel"
             >
-              <template #filter="{ close }">
+              <template #filter>
                 <FilterChecks
-                  :options="statusOptions"
-                  :selected="selectedStatus"
-                  @choose="onFilter('status', $event)"
+                  :options="filters.statusOptions"
+                  :selected="filters.status"
+                  @choose="emit('filter', 'status', $event)"
                 />
               </template>
             </ColumnHead>
@@ -189,15 +190,15 @@ function isSelected(id: number): boolean {
               label="Risk"
               sort-column="risk_score"
               :selected-sort="selectedSort"
-              :filter-active="selectedRisk !== ''"
+              :filter-active="filters.risk !== ''"
               :filter-label="riskLabel"
-              @sort="toggleColumnSort('risk_score')"
+              @sort="emit('sort', 'risk_score')"
             >
-              <template #filter="{ close }">
+              <template #filter>
                 <FilterChecks
-                  :options="riskOptions"
-                  :selected="selectedRisk"
-                  @choose="onFilter('risk', $event)"
+                  :options="filters.riskOptions"
+                  :selected="filters.risk"
+                  @choose="emit('filter', 'risk', $event)"
                 />
               </template>
             </ColumnHead>
@@ -207,15 +208,15 @@ function isSelected(id: number): boolean {
               label="Created"
               sort-column="created_at"
               :selected-sort="selectedSort"
-              :filter-active="selectedCreatedAfter !== '' || selectedCreatedBefore !== ''"
+              :filter-active="filters.createdAfter !== '' || filters.createdBefore !== ''"
               :filter-label="createdLabel"
-              @sort="toggleColumnSort('created_at')"
+              @sort="emit('sort', 'created_at')"
             >
               <template #filter>
                 <DateRangePicker
-                  :after="selectedCreatedAfter"
-                  :before="selectedCreatedBefore"
-                  @update="setFilters({ created_after: $event.after, created_before: $event.before })"
+                  :after="filters.createdAfter"
+                  :before="filters.createdBefore"
+                  @update="emit('filters', { created_after: $event.after, created_before: $event.before })"
                 />
               </template>
             </ColumnHead>
@@ -225,7 +226,7 @@ function isSelected(id: number): boolean {
               label="Updated"
               sort-column="updated_at"
               :selected-sort="selectedSort"
-              @sort="toggleColumnSort('updated_at')"
+              @sort="emit('sort', 'updated_at')"
             />
           </th>
         </tr>
@@ -242,8 +243,8 @@ function isSelected(id: number): boolean {
           class="cursor-pointer border-b border-zinc-100 last:border-0 hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-800/60"
           :class="String(item.id) === openId ? 'bg-orange-50 dark:bg-orange-500/10' : ''"
           tabindex="0"
-          @click="openPanel(item)"
-          @keydown.enter.prevent="openPanel(item)"
+          @click="emit('open', item)"
+          @keydown.enter.prevent="emit('open', item)"
         >
           <td class="px-3 py-3" @click.stop>
             <input
@@ -251,24 +252,16 @@ function isSelected(id: number): boolean {
               class="cursor-pointer accent-orange-500"
               :checked="isSelected(item.id)"
               :aria-label="`Select ${item.title}`"
-              @change="toggleSelected(item.id)"
+              @change="emit('toggleSelected', item.id)"
             />
           </td>
-          <td class="max-w-sm px-4 py-3">
+          <td class="overflow-hidden px-4 py-3">
             <div class="flex items-start gap-2">
               <div class="min-w-0 flex-1">
-                <p class="font-medium text-zinc-900 dark:text-zinc-100">{{ item.title }}</p>
-                <p class="mt-0.5 line-clamp-1 text-xs text-zinc-500">{{ item.description }}</p>
-                <p
-                  v-if="item.latest_comment"
-                  class="mt-1 line-clamp-2 text-xs text-orange-800 dark:text-orange-200"
-                >
-                  {{ item.latest_comment.reviewer_name ?? 'Reviewer' }}:
-                  {{ item.latest_comment.note }}
-                </p>
+                <QueueItemCopy :item="item" dense />
               </div>
               <div class="shrink-0" @click.stop>
-                <ItemKebab :item="item" />
+                <ItemKebab :item="item" @open="(row, options) => emit('open', row, options)" @quick="(row, decision) => emit('quick', row, decision)" />
               </div>
             </div>
           </td>

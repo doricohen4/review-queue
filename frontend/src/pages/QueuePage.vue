@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { Menu, Plus, Search } from '@lucide/vue'
+import { LoaderCircle, Menu, Plus, Search } from '@lucide/vue'
 import BulkBar from '@/components/BulkBar.vue'
 import FilterChips from '@/components/FilterChips.vue'
 import ItemPanel from '@/components/ItemPanel.vue'
@@ -28,14 +28,26 @@ const {
   reviewError,
   reviewPending,
   applySearch,
+  setFilter,
+  setFilters,
+  toggleColumnSort,
   setPerPage,
+  openPanel,
   closePanel,
   goToPage,
   onCreated,
   onEdited,
   reviewOpen,
+  reviewIds,
+  reviewSelected,
   selectedCount,
   selectedIds,
+  pageAllSelected,
+  filterView,
+  selectedSort,
+  toggleSelected,
+  togglePage,
+  clearSelection,
 } = useQueue()
 
 const { canSubmit, currentName } = usePersona()
@@ -51,6 +63,10 @@ function updateSelected(): void {
     return
   }
   openEdit(item)
+}
+
+function onQuick(item: Parameters<typeof onCreated>[0], decision: string): void {
+  void reviewIds([item.id], { decision, note: null })
 }
 
 function onEditorSaved(item: Parameters<typeof onCreated>[0]): void {
@@ -119,13 +135,10 @@ function onEditorSaved(item: Parameters<typeof onCreated>[0]): void {
     </header>
     <p v-if="catalogError" class="shrink-0 px-4 pt-2 text-sm text-red-600 lg:px-6">{{ catalogError }}</p>
     <div class="shrink-0">
-      <FilterChips />
+      <FilterChips :filters="filterView" @filter="setFilter" @clear="setFilters" />
     </div>
 
-    <div
-      class="flex min-h-0 flex-1 flex-col overflow-hidden px-4 py-4 lg:px-6"
-      :class="updating ? 'opacity-60 transition-opacity' : ''"
-    >
+    <div class="relative flex min-h-0 flex-1 flex-col overflow-hidden px-4 py-4 lg:px-6">
       <p
         v-if="error"
         class="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300"
@@ -133,10 +146,40 @@ function onEditorSaved(item: Parameters<typeof onCreated>[0]): void {
         {{ error }}
       </p>
       <QueueSkeleton v-else-if="skeleton || page === null" />
-      <QueueTable v-else :items="page.data" />
+      <QueueTable
+        v-else
+        :items="page.data"
+        :open-id="openId"
+        :selected-sort="selectedSort"
+        :filters="filterView"
+        :selected-ids="selectedIds"
+        :selected-count="selectedCount"
+        :page-all-selected="pageAllSelected"
+        @filter="setFilter"
+        @filters="setFilters"
+        @sort="toggleColumnSort"
+        @toggle-selected="toggleSelected"
+        @toggle-page="togglePage"
+        @open="openPanel"
+        @quick="onQuick"
+      />
+      <div
+        v-if="updating && page !== null"
+        class="absolute inset-0 z-10 flex items-center justify-center bg-zinc-50/70 dark:bg-zinc-950/70"
+      >
+        <p class="inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-white px-3 py-1.5 text-sm text-zinc-700 shadow-sm dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200">
+          <LoaderCircle class="size-4 animate-spin" />
+          Loading page…
+        </p>
+      </div>
     </div>
 
-    <BulkBar />
+    <BulkBar
+      :count="selectedCount"
+      :pending="reviewPending"
+      @review="reviewSelected"
+      @clear="clearSelection"
+    />
 
     <footer
       v-if="page"
@@ -150,7 +193,7 @@ function onEditorSaved(item: Parameters<typeof onCreated>[0]): void {
         <button
           type="button"
           :class="btnGhost"
-          :disabled="page.meta.current_page <= 1"
+          :disabled="updating || page.meta.current_page <= 1"
           @click="goToPage(page.meta.current_page - 1)"
         >
           Previous
@@ -158,7 +201,7 @@ function onEditorSaved(item: Parameters<typeof onCreated>[0]): void {
         <button
           type="button"
           :class="btnGhost"
-          :disabled="page.meta.current_page >= page.meta.last_page"
+          :disabled="updating || page.meta.current_page >= page.meta.last_page"
           @click="goToPage(page.meta.current_page + 1)"
         >
           Next

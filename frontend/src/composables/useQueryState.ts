@@ -3,11 +3,8 @@ import { useRoute, useRouter } from 'vue-router'
 import {
   parseQueryState,
   queryStateToRouteQuery,
-  serializeQueryState,
   type QueryState,
 } from '@/query/queryState'
-
-export { parseQueryState, serializeQueryState, type QueryState }
 
 /**
  * Bind queue state to the current route.

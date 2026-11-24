@@ -38,7 +38,7 @@ export class ApiError extends Error {
   }
 }
 
-/** GET. `TResponse` is the parsed envelope (Item show, list page, health). */
+/** GET. `TResponse` is the parsed envelope (list page, show, catalog). */
 export async function getResponse<TResponse>(
   url: string,
   init: RequestInit = {},

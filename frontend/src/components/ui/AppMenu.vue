@@ -96,6 +96,8 @@ onBeforeUnmount(() => {
         class="fixed z-[70] min-w-52 rounded-xl border border-zinc-200 bg-white p-1.5 text-zinc-900 shadow-lg dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
         :style="{ top: `${coords.top}px`, left: `${coords.left}px` }"
         role="menu"
+        @pointerdown.stop
+        @click.stop
       >
         <slot :close="close" />
       </div>

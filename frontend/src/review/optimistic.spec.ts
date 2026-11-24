@@ -13,6 +13,7 @@ function item(id: number, status: string): Item {
     flags: [],
     confidence: 'high',
     suggested_decision: 'approve',
+    latest_comment: null,
     created_at: null,
     updated_at: null,
   }

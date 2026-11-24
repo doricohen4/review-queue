@@ -189,37 +189,18 @@ function parseOptions(value: unknown): FilterOption[] {
   })
 }
 
-/** ItemQuery `{ data }` or a legacy `{ filters, sorts }` toolbar payload. */
+/** ItemQuery `{ data: { status, risk, sort, submitter } }`. */
 export function parseFilterCatalog(payload: unknown): FilterCatalog {
-  if (!isRecord(payload)) {
+  if (!isRecord(payload) || !isRecord(payload.data) || !Array.isArray(payload.data.status)) {
     throw new Error('Filter catalog missing')
   }
 
-  if (isRecord(payload.data) && Array.isArray(payload.data.status)) {
-    return {
-      status: parseOptions(payload.data.status),
-      risk: parseOptions(payload.data.risk),
-      sort: parseOptions(payload.data.sort),
-      submitter: parseOptions(payload.data.submitter),
-    }
+  return {
+    status: parseOptions(payload.data.status),
+    risk: parseOptions(payload.data.risk),
+    sort: parseOptions(payload.data.sort),
+    submitter: parseOptions(payload.data.submitter),
   }
-
-  if (Array.isArray(payload.filters)) {
-    const byKey: Record<string, FilterOption[]> = {}
-    for (const filter of payload.filters) {
-      if (isRecord(filter) && typeof filter.key === 'string') {
-        byKey[filter.key] = parseOptions(filter.options)
-      }
-    }
-    return {
-      status: byKey.status ?? [],
-      risk: (byKey.risk ?? []).filter((option) => option.value !== 'none'),
-      sort: parseOptions(payload.sorts),
-      submitter: byKey.submitter ?? [],
-    }
-  }
-
-  throw new Error('Filter catalog missing')
 }
 
 /** Laravel paginator `{ data, meta }`. Extra keys (links) are ignored. */

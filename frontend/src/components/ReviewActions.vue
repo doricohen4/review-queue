@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import { LoaderCircle } from '@lucide/vue'
 import { NOTE_MAX } from '@/personas'
 import { btnDanger, btnSuccess, btnWarn, fieldFullClass } from '@/ui/classes'
 
@@ -37,12 +38,15 @@ function send(decision: string): void {
     />
     <div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
       <button type="button" :class="btnSuccess" :disabled="pending" @click="send('approved')">
+        <LoaderCircle v-if="pending" class="size-3.5 animate-spin" />
         Approve
       </button>
       <button type="button" :class="btnDanger" :disabled="pending" @click="send('rejected')">
+        <LoaderCircle v-if="pending" class="size-3.5 animate-spin" />
         Reject
       </button>
       <button type="button" :class="btnWarn" :disabled="pending" @click="send('needs_work')">
+        <LoaderCircle v-if="pending" class="size-3.5 animate-spin" />
         Needs work
       </button>
     </div>
