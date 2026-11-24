@@ -1,26 +1,27 @@
 # Review Queue
 
-Educational content moderation queue for a BrainPOP take-home. Reviewers approve, reject, or send items back. A heuristic flags risk at submit time.
+BrainPOP take-home: an educational content moderation queue. Submitters send classroom copy; reviewers approve, reject, or send work back. A heuristic scores the text at submit time; a human decides.
 
-**Stack:** Laravel 13 (current stable; Laravel 11 is blocked by Packagist security advisories) · Vue 3 · TypeScript · SQLite · Pest · Vitest
-
-Frontend TypeScript is strict: no `any`; shared fetch/list helpers use generics (`Paginated<T>`, `getJson<T>`). See `frontend/src/types/` once those files land.
+**Stack:** Laravel 13 · PHP 8.3+ · Vue 3 · TypeScript · SQLite · Pest · Vitest · Playwright (one smoke)
 
 ---
 
-## Docs
+## Documentation
 
-| File | Role |
+There is **one** writeup. This README is only how to run the demo.
+
+| File | What it is |
 |---|---|
-| This README | How to run, stack, current slice. Start here. |
-| [docs/PRODUCT_README.md](docs/PRODUCT_README.md) | Submission-style product writeup (decisions, tradeoffs, stretch). Not a second how-to. |
-| [docs/TECHNICAL_DESIGN.md](docs/TECHNICAL_DESIGN.md) | Design record: persistence, data model, and API — each with choice and why. Not a README replacement. |
+| This README | Install, `make dev`, demo personas |
+| [docs/TECHNICAL_DESIGN.md](docs/TECHNICAL_DESIGN.md) | The full picture: persistence, data model, state machine, API, list query, HTTP layers, trade-offs, and the build tasks from the brief |
+
+Data model, endpoints, filters, transactions, cuts (`needs_work` vs `in_review`, PUT vs resubmit), and the task list live in the technical design — not duplicated here — so the choices stay in one organized place.
 
 ---
 
 ## How to run
 
-### Local (PHP 8.4+ / Node 20+)
+### Local (PHP 8.3+ / Node 22+)
 
 ```bash
 make install
@@ -35,6 +36,7 @@ make dev
 
 ```bash
 make test        # Pest + Vitest
+make e2e         # Playwright smoke (needs API + Vite; reuses `make dev` if already up)
 make lint        # Pint + ESLint
 make typecheck   # vue-tsc
 make fresh       # migrate:fresh --seed
@@ -42,18 +44,23 @@ make fresh       # migrate:fresh --seed
 
 ### Docker
 
-Requires Docker Desktop. This machine did not have the `docker` CLI during scaffold.
-
 ```bash
 docker compose up --build
 ```
 
 The API container runs `migrate --seed` on boot. SQLite lives in a named volume.
 
-**Demo identities** (no password): Alice Johnson (submitter), Bob Smith / Carol Williams (reviewers), Dana Cole (both). Seed loads a fuller mock queue. `same_person` still blocks reviewing your own item.
+### Demo identities
 
----
+No password. Switch in the sidebar.
 
-## Status
+| Name | Roles |
+|---|---|
+| Alice Johnson | Submitter |
+| Bob Smith | Reviewer |
+| Carol Williams | Reviewer |
+| Dana Cole | Both |
 
-Queue API + Vue UI are in: submit, review (including bulk + optimistic), `needs_work` revise, URL filters. **Not shipped:** cancel HTTP, Playwright smoke. Production leftovers: [docs/TECHNICAL_DESIGN.md §8](docs/TECHNICAL_DESIGN.md#8-production-backlog-living). Build table: [§9](docs/TECHNICAL_DESIGN.md#9-build-tasks-one-git-commit-each).
+Personas are client-only. The API still trusts `submitter_name` / `reviewer_name`. `same_person` blocks reviewing your own item.
+
+Seed loads a mock queue so you can filter, open a panel, and review without submitting first.

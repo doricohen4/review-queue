@@ -1,8 +1,8 @@
 # Technical Design — Review Queue
 
-Laravel 13 API · Vue 3 SPA · SQLite (Postgres later). Runbook: [README](../README.md). Product/stretch UI: [PRODUCT_README](PRODUCT_README.md). Timebox: **6 hours**.
+Laravel 13 API · Vue 3 SPA · SQLite (Postgres later). How to run: [README](../README.md). Timebox: **6 hours**.
 
-The brief asks for **data model, API, and persistence — choices and trade-offs**. Those are §1–2 and §4. List query is §4. HTTP layers §5. Production §8. Build order is §9 (~12 commits).
+This file is the writeup for the brief: **data model, API, and persistence — choices and trade-offs**. Persistence §1. Model §2. State machine §3. List query and HTTP API §4. Controllers vs services §5. Cuts §6. Tests §7. Build tasks §8. What we skipped on purpose is not duplicated here.
 
 ---
 
@@ -53,7 +53,7 @@ reviews   item_id, reviewer_id, decision, risk, note (2000), created_at
 | Choice | Why / trade-off |
 |---|---|
 | Separate `reviews` | `needs_work` can happen more than once; a column on `items` would wipe history |
-| Heuristic on `items` | Snapshot at submit/resubmit. Mixing it into reviews looks like the human invented the flags |
+| Heuristic on `items` | Snapshot replaced on submit, pending revise, and resubmit. Old scores are not kept. Mixing the score into reviews looks like the human invented the flags |
 | `name_key` | Dedup names without a login system |
 
 ---
@@ -62,21 +62,23 @@ reviews   item_id, reviewer_id, decision, risk, note (2000), created_at
 
 Brief minimum is **pending vs reviewed**. Split reviewed into `approved` / `rejected`, and add **`needs_work`** so “no” is not only reject (required note; resubmit re-runs the heuristic).
 
-**Timebox:** ship **either** `needs_work` **or** `in_review`, not both. `needs_work` has more product value. Soft claim is a production add (`claimed_until` + job) — drop it first if the clock is tight. If the clock bites after `needs_work`, **`cancelled` is the next cut** (withdraw can wait; send-back cannot).
+**Timebox:** ship **either** `needs_work` **or** `in_review`, not both. `needs_work` has more product value. Soft claim is a later add (`claimed_until` + job). There is **no** `cancelled` status and no withdraw endpoint.
 
 ```
 pending ──► approved | rejected     terminal
-        └──► needs_work ──► pending  resubmit / PUT revise (note already on the review)
-pending ──► cancelled               terminal (in the map; HTTP cancel was cut)
+        └──► needs_work ──► pending  POST resubmit (note already on the review)
 ```
 
-Illegal moves **throw**. One `TRANSITIONS` **hash map**: key = current status (O(1) lookup), value = allowed next statuses (a tiny list). Empty value `[]` = **terminal** — zero legal moves, not “anything goes.” `needs_work → pending` is the only reopen. No `in_review` in the demo map. `PUT /api/items/{id}` is **content revise** (author, pending or needs_work), not a review decision.
+Illegal moves **throw**. One `TRANSITIONS` **hash map**: key = current status (O(1) lookup), value = allowed next statuses (a tiny list). Empty value `[]` = **terminal** — zero legal moves, not “anything goes.” `needs_work → pending` is the only reopen. No `in_review`. `PUT /api/items/{id}` is **pending content revise**, not a review decision and not a reopen.
 
 ---
 
 ## 4. API + list query (do not thin this)
 
-**Choice:** REST under `/api`. Queue is **one GET**; **URL is the view** (`q`, `filter[]`, dates, `sort`, `page`, `item`). Review is **one POST command** (`ids[]`) — not `PUT` for the decision. `PUT` is only for the submitter editing copy.
+**Choice:** REST under `/api`. Queue is **one GET**; **URL is the view** (`q`, `filter[]`, dates, `sort`, `page`, `item`). Review is **one POST command** (`ids[]`) — not `PUT` for the decision. `PUT` and `POST .../resubmit` are both author writes, with different verbs:
+
+- **`PUT /api/items/{id}`** — edit **pending** copy in place (stay pending, re-score).
+- **`POST /api/items/{id}/resubmit`** — **needs_work → pending** (the only reopen). PUT on `needs_work` is **422**.
 
 ```
 GET  /api/items                 see ItemQuery below
@@ -84,19 +86,19 @@ POST /api/items                 submit (heuristic)
 GET  /api/items/filters         options for the toolbar (not hard-coded in Vue)
 POST /api/items/review          { ids, decision, risk, note, reviewer_name }
 GET  /api/items/{id}            panel row (+ latest_comment)
-PUT  /api/items/{id}            author revise (pending in place, or needs_work → pending)
-POST /api/items/{id}/resubmit   same reopen as PUT when already needs_work
+PUT  /api/items/{id}            author revise pending copy in place
+POST /api/items/{id}/resubmit   needs_work → pending (PUT cannot do this)
 GET  /api/items/{id}/audit      append-only review notes
 ```
 
-**Cut:** `POST .../cancel`, `GET /api/users?q=`. Personas are client-side names, not a users search API.
+**Cut:** withdraw/cancel, `GET /api/users?q=`. Personas are client-side names, not a users search API.
 
 **`ItemQuery` (filter registry):** Eloquent + indexes are the engine; **allow-listed filters** are the contract. Unknown `filter[]` / `sort` keys → **`422`** (safer to test than silent ignore). Ignore only UI-only params (`item`). Do not ad-hoc `if ($request->has)` in the controller.
 
 | Param | Meaning |
 |---|---|
-| `q` | Title/description search |
-| `filter[status]`, `filter[risk]`, `filter[submitter]` | One value or comma-OR (`pending,needs_work`) / ids |
+| `q` | Title/description search. The page writes it 300ms after the last keystroke |
+| `filter[status]`, `filter[risk]`, `filter[submitter]` | One value or comma-OR (`pending,needs_work`) / ids. `filter[status]=-` is explicit empty (no rows). Omitted means all |
 | `filter[created_after]`, `filter[created_before]` | Inclusive calendar-day range on `items.created_at` |
 | `sort` | Allow-listed columns only (e.g. `-created_at`, `-updated_at`) |
 | `page` | Pagination; `meta.total`, `current_page`, `last_page` always present |
@@ -106,7 +108,19 @@ Adding a filter = register it on `ItemQuery` + a Pest list test + toolbar contro
 
 Bulk: `data.updated` / `data.failed` (tx-per-id). Reasons: `not_found`, `invalid_transition`, `same_person`. `207` iff `failed_count > 0`.
 
-Heuristic: small policy classes, score 0–100, not ML.
+Heuristic: small policy classes, score 0–100, not ML. `latest_comment` is the newest review whose note is non-empty, eager-loaded with the reviewer on list, show, submit, and revise.
+
+**Client after a write.** The URL stays the source of truth for the list. TanStack holds server payloads.
+
+| Write | What the client does next |
+|---|---|
+| Author edit (`PUT` or `POST .../resubmit`) | Seed the open item and the matching list row from the response. Invalidate **only** `['items']`, so a status or risk filter can drop the row. Do not refetch the item, `/audit`, or `/filters`. |
+| Review (`POST .../review`) | Paint optimistic rows, then invalidate list, item, audit, and filters. **422** restores every painted id. **207** restores only `failed[]`. |
+| Submit | Open the new row and invalidate the queue caches. |
+
+The edit dialog reads audit through the same `['audit', id]` query as the panel, so opening Update does not start a second uncached GET.
+
+**Page, checked against this design.** One queue screen. Search, filters, sort, page, and the open id are the query string. Status shortcuts (**To review** = pending, **Needs work**, **Approved**, **Rejected**) write `filter[status]` the same way as the column menu. Pending and needs_work stay separate: one is the reviewer inbox, the other is the author loop. Selection is in-memory. Update is shown for exactly one selected row the actor can edit (`pending` for PUT, `needs_work` for resubmit, author only). The table region scrolls; the header row does not. Empty `filter[status]=-` keeps the table and says no results. Dark theme includes the sticky header. Toasts come in from the top right and stay 5 seconds.
 
 ---
 
@@ -131,59 +145,28 @@ Route → FormRequest → Controller
 | Ship | Cut in this timebox | Why |
 |---|---|---|
 | SQLite + tx-per-id bulk | Postgres in Compose | `.env` swap later |
-| `needs_work` (cancel **cut**) | `in_review` / claim TTL; `POST .../cancel` | Send-back > withdraw > soft claim |
+| `needs_work` | `in_review` / claim TTL / withdraw | Send-back > lock > cancel |
 | `ItemQuery` registry + URL state | Thinner `?status=` only list | Interview + real queue UX |
-| Pest + Vitest | Playwright smoke (task 12, not shipped) | See tests below |
+| Pest + Vitest + one Playwright smoke | Broader UI suite | See tests below |
 | Bulk `ids[]` + optimistic UI | Auth, attachments, ML | Stretch **shipped** |
 
 ---
 
 ## 7. Tests — TDD
 
-Every §9 task is **red → green → refactor**.
+Every §8 task is **red → green → refactor**.
 
 1. **Red** — write the Pest/Vitest in the “Red first” column; run it; it **fails**.
 2. **Green** — implement only enough to pass.
 3. **Refactor** — tidy with tests still green; then commit.
 
-Pest for domain + HTTP. Vitest for URL/composable logic. **One** Playwright spec (task 12) after the UI exists — not instead of unit/feature tests.
+Pest for domain + HTTP. Vitest for URL/composable logic. **One** Playwright spec (task 11) after the UI exists — not instead of unit/feature tests.
 
 ---
 
-## 8. Production backlog (living)
+## 8. Build tasks (one git commit each)
 
-What we **know we skipped** on purpose. Update this as we find more. Extension points already in code are marked *hook*.
-
-| ID | Finding | Now (6h) | Production |
-|---|---|---|---|
-| P1 | SQLite | File DB, ACID enough for demo | `DB_CONNECTION=pgsql`, pooling (PgBouncer), same migrations |
-| P2 | Names as identity | Personas / `name_key` | SSO (Sanctum/OIDC); middleware fills `reviewer_name` (*hook*) |
-| P3 | Soft claim | No `in_review` | `in_review` + `claimed_until` TTL + scheduled release |
-| P4 | Bulk size | Inline, tx-per-id, 200/207 | Large batches: `202` + job + progress; same loop inside the worker |
-| P5 | Keyword weights | Static hash map in `KeywordRule` | `moderation_rules` table / admin; inject map into the rule (*hook*) |
-| P6 | Profanity | `ProfanityRule` **empty** | Product-owned word list (not guessed in git) (*hook*) |
-| P7 | XSS | Flag `<script` / `javascript:` / `onerror=` | Real sanitizer on write; Vue **never** `v-html` on item text |
-| P8 | ML scoring | Keyword + structural + security | Extra `ModerationRule` (*hook*) |
-| P9 | Content size | Title 120 / description 5000 / note 2000 | Raise only via `ContentLimits` + migration |
-| P10 | i18n | English `reason` strings on flags | Store `reason_key`; client translates labels (`needs_work` stays snake_case in API) |
-| P11 | CORS | Open to `FRONTEND_URL` | Tighten origins, credentials if cookies |
-| P12 | Assignment | None | `assigned_to` + notify (mail/Slack) — not this timebox |
-| P13 | Resubmit diffs | Full new snapshot | `item_revisions` + timeline |
-| P14 | Attachments | None | Object storage (S3) |
-| P15 | Ops | App logs | Throttle submit/review; JSON logs + request ids; Sentry |
-| P16 | E2E | Pest + Vitest only | One Playwright smoke (task 12) then a broader UI suite |
-| P17 | Cancel | Status in the map; **no** `POST .../cancel` | Withdraw endpoint + inbox drop |
-| P18 | BFF | Direct SPA → API | Only if a second client needs a different shape |
-| P19 | Roles | Vue personas (`roles[]`); API still trusts `*_name` | Real authz on submit vs review |
-| P20 | Pinia | Theme only; queue state is the URL + `useQueue` | Extra stores only if URL is no longer the view |
-
-Do **not** treat this list as 6h work. Hooks: `ModerationPipeline::default()`, `ProfanityRule` constructor, `ContentLimits`, Eloquent.
-
----
-
-## 9. Build tasks (one git commit each)
-
-About **12** commits. **Red test first** for 2–12, then green, then commit. Skip 11–12 if the clock dies.
+About **11** commits. **Red test first** for 2–11, then green, then commit. Skip the Playwright smoke if the clock dies.
 
 | # | Commit | Red first (failing test) | Then build | Done when |
 |---|---|---|---|---|
@@ -197,11 +180,10 @@ About **12** commits. **Red test first** for 2–12, then green, then commit. Sk
 | 8 | `feat: frontend — queue + URL state` | Vitest: `useQueryState` parse/serialize `q` + `filter[status]` | Queue, panel, `getJson<T>` | Filter URL + open panel |
 | 9 | `feat: frontend — submit + personas` | Vitest or component: submit posts `submitter_name` | Form + Alice/Bob/Carol | Submit as Alice, review as Bob | ✅ |
 | 10 | `feat: stretch — bulk + optimistic UI` | Vitest: 207 rolls back **only** `failed[]` | Multi-select; same review endpoint | One stretch only | ✅ |
-| 11 | `feat: cancel` | Pest: pending → cancelled | **Cut** — no HTTP cancel | Status remains in the map (P17) |
-| 12 | `test: Playwright smoke` | Spec written first; fails until UI exists | **Not shipped** | P16 |
+| 11 | `test: Playwright smoke` | Spec: submit appears, reviewer can approve | `frontend/e2e/queue-smoke.spec.ts` | ✅ |
 
-**Landed after 9–10 (QA):** `GET /api/items/{id}`, `PUT` revise, comma-OR filters, `latest_comment`, dual-role persona (Dana), editor modal, toasts. Same rules: no `in_review`, URL is the view, review stays `POST .../review`.
+**Landed after 9–10 (QA):** `GET /api/items/{id}`, `PUT` pending revise vs `POST` resubmit, comma-OR filters, `latest_comment`, dual-role persona (Dana), editor modal, toasts, TanStack Query keys, split queue helpers. Same rules: no `in_review`, no `cancelled`, URL is the view, review stays `POST .../review`.
 
-**Not separate commits:** Docker, pagination-as-stretch, `in_review`, atoms-only folders. `docs/PRODUCT_README.md` is still a long product writeup — fold into root `README.md` when cutting docs.
+**Not separate commits:** Docker, pagination-as-stretch, `in_review`, withdraw/cancel, atoms-only folders.
 
-After 7 the API matches the brief. After 9 the UI does. 10 (bulk + optimistic) shipped. 11–12 are the remaining build-table rows.
+After 7 the API matches the brief. After 9 the UI does. 10 (bulk + optimistic) and 11 (smoke) shipped.
