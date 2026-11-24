@@ -2,8 +2,10 @@
 
 namespace Database\Seeders;
 
+use App\Domain\ItemTimeline;
 use App\Domain\Moderation\HeuristicFlag;
 use App\Domain\Moderation\ModerationPipeline;
+use App\Enums\ItemEventKind;
 use App\Models\Item;
 use App\Models\Review;
 use App\Models\User;
@@ -212,6 +214,10 @@ class DemoSeeder extends Seeder
                 'updated_at' => $row['updated_at'] ?? $row['created_at'],
             ])->save();
 
+            if ($item->events()->doesntExist()) {
+                ItemTimeline::record($item, $submitter, ItemEventKind::Submitted);
+            }
+
             $note = $row['note'] ?? null;
             if (is_string($note) && $note !== '' && $item->reviews()->doesntExist()) {
                 Review::query()->create([
@@ -220,6 +226,14 @@ class DemoSeeder extends Seeder
                     'decision' => 'needs_work',
                     'note' => $note,
                 ]);
+                ItemTimeline::record(
+                    $item,
+                    $users['Bob Smith'],
+                    ItemEventKind::Reviewed,
+                    'needs_work',
+                    $note,
+                    $item->updated_at,
+                );
             }
         }
     }

@@ -84,6 +84,8 @@ export function useQueue() {
   const updating = computed(() => itemsQuery.isFetching.value && page.value !== null)
   const openItem = computed(() => (openNumericId.value === null ? null : (itemQuery.data.value ?? null)))
   const audit = computed(() => auditQuery.data.value ?? [])
+  const auditPending = computed(() => auditQuery.isPending.value)
+  const auditError = computed(() => errorMessage(auditQuery.error.value, 'Could not load history'))
   const openError = computed(() => {
     if (openId.value === null) {
       return null
@@ -93,6 +95,9 @@ export function useQueue() {
     }
     return errorMessage(itemQuery.error.value, 'Could not load this item')
   })
+  const canRetryOpen = computed(
+    () => openNumericId.value !== null && itemQuery.isError.value,
+  )
 
   const filterView = computed(() =>
     toQueueFilterView(state.value.filters, {
@@ -175,6 +180,14 @@ export function useQueue() {
 
   function closePanel(): void {
     void patch({ item: null })
+  }
+
+  function retryOpenItem(): void {
+    void itemQuery.refetch()
+  }
+
+  function retryAudit(): void {
+    void auditQuery.refetch()
   }
 
   function onCreated(item: Item): void {
@@ -277,8 +290,13 @@ export function useQueue() {
     openId,
     openItem,
     audit,
+    auditPending,
+    auditError,
     focusReview,
     openError,
+    canRetryOpen,
+    retryOpenItem,
+    retryAudit,
     reviewError,
     reviewPending,
     selectedIds,

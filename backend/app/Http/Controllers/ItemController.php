@@ -5,8 +5,8 @@ namespace App\Http\Controllers;
 use App\Http\Queries\ItemQuery;
 use App\Http\Requests\ReviewItemsRequest;
 use App\Http\Requests\StoreItemRequest;
+use App\Http\Resources\ItemEventResource;
 use App\Http\Resources\ItemResource;
-use App\Http\Resources\ReviewResource;
 use App\Models\Item;
 use App\Services\ItemService;
 use App\Services\ReviewService;
@@ -20,7 +20,7 @@ class ItemController extends Controller
     /** GET /api/items/{item} — one queue row for the open panel. */
     public function show(Item $item): ItemResource
     {
-        $item->load(['submitter', 'latestComment.reviewer']);
+        $item->load(['submitter', 'latestComment.actor']);
 
         return new ItemResource($item);
     }
@@ -48,7 +48,7 @@ class ItemController extends Controller
             $request->validated('submitter_name'),
         );
 
-        $item->load(['submitter', 'latestComment.reviewer']);
+        $item->load(['submitter', 'latestComment.actor']);
 
         return (new ItemResource($item))
             ->response()
@@ -106,11 +106,11 @@ class ItemController extends Controller
         return new ItemResource($item);
     }
 
-    /** GET /api/items/{item}/audit — append-only review notes, oldest first. */
+    /** GET /api/items/{item}/audit — submit, edit, and review rows, oldest first. */
     public function audit(Item $item): AnonymousResourceCollection
     {
-        return ReviewResource::collection(
-            $item->reviews()->with('reviewer')->orderBy('id')->paginate(),
+        return ItemEventResource::collection(
+            $item->events()->with('actor')->orderBy('id')->paginate(),
         );
     }
 }

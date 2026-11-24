@@ -6,7 +6,13 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['item_id', 'reviewer_id', 'decision', 'risk', 'note'])]
+#[Fillable([
+    'item_id',
+    'reviewer_id',
+    'decision',
+    'risk',
+    'note',
+])]
 class Review extends Model
 {
     public const UPDATED_AT = null;

@@ -50,17 +50,17 @@ describe('parseItem', () => {
 })
 
 describe('parseReview', () => {
-  it('reads a ReviewResource audit row', () => {
+  it('reads an ItemEventResource audit row', () => {
     expect(
       parseReview({
         id: 1,
+        kind: 'reviewed',
         decision: 'needs_work',
-        risk: 'medium',
         note: 'Add safety warnings.',
-        reviewer: { id: 2, name: 'Bob Smith' },
+        actor: { id: 2, name: 'Bob Smith' },
         created_at: '2026-11-24T10:00:00+00:00',
       }),
-    ).toMatchObject({ note: 'Add safety warnings.', decision: 'needs_work' })
+    ).toMatchObject({ kind: 'reviewed', note: 'Add safety warnings.', decision: 'needs_work' })
   })
 })
 

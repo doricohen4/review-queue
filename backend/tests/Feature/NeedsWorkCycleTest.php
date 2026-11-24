@@ -64,10 +64,12 @@ it('keeps a note per cycle after needs_work, resubmit, and a second send-back', 
 
     $this->getJson("/api/items/{$item->id}/audit")
         ->assertOk()
-        ->assertJsonPath('meta.total', 2)
+        ->assertJsonPath('meta.total', 3)
+        ->assertJsonPath('data.0.kind', 'reviewed')
         ->assertJsonPath('data.0.note', 'Add safety warnings.')
-        ->assertJsonPath('data.0.decision', 'needs_work')
-        ->assertJsonPath('data.1.note', 'Cite the source for the diagram.');
+        ->assertJsonPath('data.1.kind', 'resubmitted')
+        ->assertJsonPath('data.2.kind', 'reviewed')
+        ->assertJsonPath('data.2.note', 'Cite the source for the diagram.');
 });
 
 it('approves after needs_work and resubmit', function () {
@@ -99,9 +101,12 @@ it('approves after needs_work and resubmit', function () {
 
     $this->getJson("/api/items/{$item->id}/audit")
         ->assertOk()
-        ->assertJsonPath('meta.total', 2)
+        ->assertJsonPath('meta.total', 3)
+        ->assertJsonPath('data.0.kind', 'reviewed')
         ->assertJsonPath('data.0.decision', 'needs_work')
-        ->assertJsonPath('data.1.decision', 'approved');
+        ->assertJsonPath('data.1.kind', 'resubmitted')
+        ->assertJsonPath('data.2.kind', 'reviewed')
+        ->assertJsonPath('data.2.decision', 'approved');
 });
 
 it('rejects after needs_work and resubmit', function () {

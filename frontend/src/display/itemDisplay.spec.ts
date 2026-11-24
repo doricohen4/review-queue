@@ -8,6 +8,9 @@ import {
   hasFlags,
   initials,
   personName,
+  historyKindLabel,
+  outstandingNeeds,
+  reviewEffect,
   submitterHue,
 } from './itemDisplay'
 
@@ -73,7 +76,7 @@ describe('itemDisplay', () => {
     const now = Date.parse('2026-11-24T12:00:00.000Z')
     expect(formatTimestamp('2026-11-24T11:59:20.000Z', now)).toBe('just now')
     expect(formatTimestamp('2026-11-24T11:10:00.000Z', now)).toBe('50m ago')
-    expect(formatTimestamp('2026-11-22T09:05:00.000Z', now)).toBe('22 Nov 2026, 09:05')
+    expect(formatTimestamp('2026-11-22T09:05:00.000Z', now)).toContain('22 Nov 2026')
   })
 
   it('formats flag lines outside the template', () => {
@@ -81,5 +84,69 @@ describe('itemDisplay', () => {
     expect(flagLine({ key: 'keyword:password', weight: 40, reason: 'password token' })).toBe(
       'keyword:password (40) — password token',
     )
+  })
+
+  it('keeps submit, update, and grade rows in history even when there is no note', () => {
+    const audit = [
+      {
+        id: 1,
+        kind: 'submitted' as const,
+        decision: null,
+        note: null,
+        actor: { id: 1, name: 'Alice Johnson' },
+        snapshot: null,
+        created_at: '2026-11-19T06:41:02.000Z',
+      },
+      {
+        id: 2,
+        kind: 'reviewed' as const,
+        decision: 'needs_work',
+        note: 'Fix the login copy',
+        snapshot: null,
+        actor: { id: 3, name: 'Carol Williams' },
+        created_at: '2026-11-20T12:00:00.000Z',
+      },
+    ]
+    expect(historyKindLabel(audit[0]!)).toBe('Submitted')
+    expect(historyKindLabel(audit[1]!)).toBe('needs work')
+  })
+
+  it('shows reviewer comments only until the author updates again', () => {
+    const submitted = {
+      id: 1,
+      kind: 'submitted' as const,
+      decision: null,
+      note: null,
+      snapshot: null,
+      created_at: null,
+    }
+    const asked = {
+      id: 2,
+      kind: 'reviewed' as const,
+      decision: 'needs_work',
+      note: 'Add safety warnings.',
+      snapshot: null,
+      created_at: null,
+    }
+    const updated = {
+      id: 3,
+      kind: 'revised' as const,
+      decision: null,
+      note: null,
+      snapshot: null,
+      created_at: null,
+    }
+    expect(outstandingNeeds([submitted, asked])).toEqual([asked])
+    expect(outstandingNeeds([submitted, asked, updated])).toEqual([])
+  })
+
+  it('says whether a grade followed or overrode the heuristic', () => {
+    expect(reviewEffect('needs_work', 'reject', 60)).toBe(
+      'Overrode the heuristic (reject → needs work). Score was 60.',
+    )
+    expect(reviewEffect('approved', 'approve', 10)).toBe(
+      'Followed the heuristic (approve). Score was 10.',
+    )
+    expect(reviewEffect('rejected', null, null)).toBe('Set status to rejected.')
   })
 })

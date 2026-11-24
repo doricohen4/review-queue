@@ -38,6 +38,22 @@ it('rejects submit without a description', function () {
     ])->assertUnprocessable();
 });
 
+it('rejects a title shorter than ContentLimits', function () {
+    $this->postJson('/api/items', [
+        'title' => 'Hi',
+        'description' => 'Body copy for the classroom.',
+        'submitter_name' => 'Alice Johnson',
+    ])->assertUnprocessable();
+});
+
+it('rejects a description shorter than ContentLimits', function () {
+    $this->postJson('/api/items', [
+        'title' => 'Math quiz template',
+        'description' => 'Too short',
+        'submitter_name' => 'Alice Johnson',
+    ])->assertUnprocessable();
+});
+
 it('rejects a title longer than ContentLimits', function () {
     $this->postJson('/api/items', [
         'title' => str_repeat('A', ContentLimits::TITLE_MAX + 1),

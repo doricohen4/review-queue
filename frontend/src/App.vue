@@ -5,10 +5,11 @@ import AppSelect from '@/components/ui/AppSelect.vue'
 import ToastStack from '@/components/ui/ToastStack.vue'
 import { usePersona } from '@/composables/usePersona'
 import { useUi } from '@/composables/useUi'
+import { backgroundInert } from '@/display/sheetA11y'
 import { useThemeStore, type ThemeMode } from '@/stores/theme'
 
 const { personas, currentName, canSubmit, roleLabel, setCurrent } = usePersona()
-const { navOpen, openSubmit } = useUi()
+const { navOpen, openSubmit, activeModal } = useUi()
 const theme = useThemeStore()
 
 const personaOptions = personas.map((persona) => ({
@@ -26,6 +27,7 @@ const themeOptions = [
 <template>
   <div
     class="flex h-dvh overflow-hidden bg-zinc-50 font-sans text-zinc-900 antialiased dark:bg-zinc-950 dark:text-zinc-100"
+    :inert="backgroundInert(activeModal)"
   >
     <div
       v-if="navOpen"

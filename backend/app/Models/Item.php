@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\ItemEventKind;
 use Database\Factories\ItemFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
@@ -46,19 +47,42 @@ class Item extends Model
         return $this->belongsTo(User::class, 'submitter_id');
     }
 
-    /** Append-only human decisions (audit timeline). */
+    /** Submit / update / grade rows, oldest first in the panel History tab. */
+    public function events(): HasMany
+    {
+        return $this->hasMany(ItemEvent::class);
+    }
+
+    /** Human grades. History in the panel is `events()`, not this relation. */
     public function reviews(): HasMany
     {
         return $this->hasMany(Review::class);
     }
 
-    /** Newest review that actually left a note. A blank decision does not hide an older note. */
+    /**
+     * Newest reviewer note still open after the last submit / update.
+     * History is item_events; this is only the outstanding send-back.
+     */
     public function latestComment(): HasOne
     {
-        return $this->hasOne(Review::class)->ofMany(
+        $authorKinds = [
+            ItemEventKind::Submitted->value,
+            ItemEventKind::Revised->value,
+            ItemEventKind::Resubmitted->value,
+        ];
+
+        return $this->hasOne(ItemEvent::class)->ofMany(
             ['id' => 'max'],
-            function (Builder $query): void {
-                $query->whereNotNull('note')->where('note', '!=', '');
+            function (Builder $query) use ($authorKinds): void {
+                $query->where('kind', ItemEventKind::Reviewed->value)
+                    ->whereNotNull('note')
+                    ->where('note', '!=', '')
+                    ->where('item_events.id', '>', function ($sub) use ($authorKinds): void {
+                        $sub->from('item_events as author_events')
+                            ->selectRaw('coalesce(max(author_events.id), 0)')
+                            ->whereColumn('author_events.item_id', 'item_events.item_id')
+                            ->whereIn('author_events.kind', $authorKinds);
+                    });
             },
         );
     }

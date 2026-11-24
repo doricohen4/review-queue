@@ -23,8 +23,13 @@ const {
   openId,
   openItem,
   audit,
+  auditPending,
+  auditError,
   focusReview,
   openError,
+  canRetryOpen,
+  retryOpenItem,
+  retryAudit,
   reviewError,
   reviewPending,
   applySearch,
@@ -229,11 +234,16 @@ function onEditorSaved(item: Parameters<typeof onCreated>[0]): void {
         :item="openItem"
         :item-id="openId"
         :audit="audit"
+        :audit-pending="auditPending"
+        :audit-error="auditError"
         :focus-review="focusReview"
         :error="openError"
+        :can-retry="canRetryOpen"
         :review-error="reviewError"
         :review-pending="reviewPending"
         @close="closePanel"
+        @retry="retryOpenItem"
+        @retry-audit="retryAudit"
         @review="reviewOpen"
       />
     </Transition>
@@ -244,6 +254,9 @@ function onEditorSaved(item: Parameters<typeof onCreated>[0]): void {
         @click.self="closeEditor()"
       >
         <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="item-editor-title"
           class="dialog-panel w-full max-w-2xl overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-950"
         >
           <ItemEditor :item="editor.item" @saved="onEditorSaved" @close="closeEditor()" />

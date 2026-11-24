@@ -33,7 +33,3 @@ export function canReviewAs(name: string): boolean {
 export function roleLabel(persona: Persona | undefined): string {
   return (persona?.roles ?? []).join(' · ')
 }
-
-export const TITLE_MAX = 120
-export const DESCRIPTION_MAX = 5000
-export const NOTE_MAX = 2000

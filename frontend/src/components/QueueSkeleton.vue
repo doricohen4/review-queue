@@ -3,7 +3,7 @@ import AppSkeleton from '@/components/ui/AppSkeleton.vue'
 </script>
 
 <template>
-  <div class="space-y-3 md:hidden">
+  <div class="space-y-3 xl:hidden">
     <div
       v-for="row in 6"
       :key="row"
@@ -15,7 +15,7 @@ import AppSkeleton from '@/components/ui/AppSkeleton.vue'
     </div>
   </div>
   <div
-    class="hidden overflow-hidden rounded-xl border border-zinc-200 bg-white md:block dark:border-zinc-800 dark:bg-zinc-900"
+    class="hidden overflow-hidden rounded-xl border border-zinc-200 bg-white xl:block dark:border-zinc-800 dark:bg-zinc-900"
   >
     <div class="space-y-0 divide-y divide-zinc-100 dark:divide-zinc-800">
       <div v-for="row in 8" :key="row" class="grid grid-cols-5 gap-4 px-4 py-3">

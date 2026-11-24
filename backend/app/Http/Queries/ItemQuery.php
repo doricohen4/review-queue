@@ -65,7 +65,7 @@ final class ItemQuery
     {
         $this->assertKnown($request);
 
-        $query = Item::query()->with(['submitter', 'latestComment.reviewer']);
+        $query = Item::query()->with(['submitter', 'latestComment.actor']);
 
         $q = $request->query('q');
         if (is_string($q) && $q !== '') {

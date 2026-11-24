@@ -3,8 +3,10 @@
 namespace App\Services;
 
 use App\Domain\ItemStateMachine;
+use App\Domain\ItemTimeline;
 use App\Domain\Moderation\HeuristicFlag;
 use App\Domain\Moderation\ModerationPipeline;
+use App\Enums\ItemEventKind;
 use App\Enums\ItemStatus;
 use App\Exceptions\CannotResubmitException;
 use App\Exceptions\CannotReviseException;
@@ -32,7 +34,7 @@ final class ItemService
                 ['name' => trim($submitterName)],
             );
 
-            return Item::query()->create([
+            $item = Item::query()->create([
                 'title' => $title,
                 'description' => $description,
                 'submitter_id' => $user->id,
@@ -43,6 +45,10 @@ final class ItemService
                 'confidence' => $result->confidence,
                 'suggested_decision' => $result->suggestedDecision,
             ]);
+
+            ItemTimeline::record($item, $user, ItemEventKind::Submitted);
+
+            return $item;
         });
     }
 
@@ -60,7 +66,7 @@ final class ItemService
             ItemStatus::Pending,
         );
 
-        return $this->storeRevision($item, $title, $description);
+        return $this->storeRevision($item, $title, $description, ItemEventKind::Resubmitted);
     }
 
     /**
@@ -82,7 +88,7 @@ final class ItemService
             $this->stateMachine->assertTransition($from, ItemStatus::Pending);
         }
 
-        return $this->storeRevision($item, $title, $description);
+        return $this->storeRevision($item, $title, $description, ItemEventKind::Revised);
     }
 
     /** @throws CannotResubmitException */
@@ -94,11 +100,11 @@ final class ItemService
         }
     }
 
-    private function storeRevision(Item $item, string $title, string $description): Item
+    private function storeRevision(Item $item, string $title, string $description, ItemEventKind $kind): Item
     {
         $result = $this->pipeline->evaluate($title, $description);
 
-        return DB::transaction(function () use ($item, $title, $description, $result): Item {
+        return DB::transaction(function () use ($item, $title, $description, $result, $kind): Item {
             $item->update([
                 'title' => $title,
                 'description' => $description,
@@ -110,7 +116,14 @@ final class ItemService
                 'suggested_decision' => $result->suggestedDecision,
             ]);
 
-            return $item->refresh()->load(['submitter', 'latestComment.reviewer']);
+            $item = $item->refresh()->load(['submitter', 'latestComment.actor']);
+            $actor = $item->submitter;
+            if ($actor === null) {
+                throw new CannotResubmitException;
+            }
+            ItemTimeline::record($item, $actor, $kind);
+
+            return $item;
         });
     }
 }

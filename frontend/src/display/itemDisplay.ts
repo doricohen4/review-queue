@@ -1,5 +1,7 @@
 import { canReviewAs } from '@/personas'
-import type { HeuristicFlag } from '@/types/api'
+import type { HeuristicFlag, Review } from '@/types/api'
+
+const AUTHOR_KINDS = new Set(['submitted', 'revised', 'resubmitted'])
 
 const EMPTY = '—'
 
@@ -65,6 +67,67 @@ export function flagLine(flag: HeuristicFlag): string {
   return `${flag.key} (${flag.weight}) — ${flag.reason}`
 }
 
+export function historyKindLabel(row: Review): string {
+  if (row.kind === 'submitted') {
+    return 'Submitted'
+  }
+  if (row.kind === 'revised') {
+    return 'Updated'
+  }
+  if (row.kind === 'resubmitted') {
+    return 'Resubmitted'
+  }
+  if (row.decision == null || row.decision === '') {
+    return 'Reviewed'
+  }
+  return row.decision.replaceAll('_', ' ')
+}
+
+export function eventActorName(row: Review): string | undefined {
+  return row.actor?.name
+}
+
+/** Reviewer notes still open after the last submit/update. */
+export function outstandingNeeds(audit: Review[]): Review[] {
+  let lastAuthor = -1
+  for (let index = 0; index < audit.length; index++) {
+    const row = audit[index]
+    if (row !== undefined && AUTHOR_KINDS.has(row.kind)) {
+      lastAuthor = index
+    }
+  }
+
+  return audit
+    .slice(lastAuthor + 1)
+    .filter((row) => row.kind === 'reviewed' && row.note !== null && row.note !== '')
+}
+
+function sameSuggestion(decision: string, suggested: string): boolean {
+  const left = decision.replaceAll('_', ' ')
+  const right = suggested.replaceAll('_', ' ')
+  if (left === right) {
+    return true
+  }
+  return left === `${right}d` || right === `${left}d`
+}
+
+/** One sentence: did this grade follow the score, or override it? */
+export function reviewEffect(
+  decision: string,
+  suggested: string | null | undefined,
+  score: number | null | undefined,
+): string {
+  const status = decision.replaceAll('_', ' ')
+  if (suggested == null || suggested === '') {
+    return `Set status to ${status}.`
+  }
+  const scoreBit = score == null ? '' : ` Score was ${score}.`
+  if (sameSuggestion(decision, suggested)) {
+    return `Followed the heuristic (${suggested}).${scoreBit}`
+  }
+  return `Overrode the heuristic (${suggested} → ${status}).${scoreBit}`
+}
+
 export function initials(name: string | undefined): string {
   if (name == null || name === '') {
     return '?'
@@ -97,7 +160,6 @@ export function formatTimestamp(iso: string | null, now = Date.now()): string {
   }
 
   return new Intl.DateTimeFormat('en-GB', {
-    timeZone: 'UTC',
     day: 'numeric',
     month: 'short',
     year: 'numeric',

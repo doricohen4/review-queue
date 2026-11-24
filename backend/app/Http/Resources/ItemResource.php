@@ -34,7 +34,7 @@ class ItemResource extends JsonResource
             ]),
             'latest_comment' => $this->latestComment === null ? null : [
                 'note' => $this->latestComment->note,
-                'reviewer_name' => $this->latestComment->reviewer?->name,
+                'reviewer_name' => $this->latestComment->actor?->name,
             ],
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),

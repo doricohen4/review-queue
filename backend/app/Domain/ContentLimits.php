@@ -12,9 +12,13 @@ namespace App\Domain;
 final class ContentLimits
 {
     /** Headline — already VARCHAR(120) from day one. */
+    public const TITLE_MIN = 3;
+
     public const TITLE_MAX = 120;
 
-    /** Body. ~800–1000 words. VARCHAR, not TEXT, so the DB agrees with validation. */
+    /** Body. Short classroom copy, not a novel. VARCHAR, not TEXT. */
+    public const DESCRIPTION_MIN = 10;
+
     public const DESCRIPTION_MAX = 5000;
 
     /** Reviewer comment per cycle (needs_work note). */

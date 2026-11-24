@@ -3,6 +3,8 @@
 namespace App\Services;
 
 use App\Domain\ItemStateMachine;
+use App\Domain\ItemTimeline;
+use App\Enums\ItemEventKind;
 use App\Enums\ItemStatus;
 use App\Exceptions\InvalidTransitionException;
 use App\Exceptions\NoteRequiredException;
@@ -75,6 +77,7 @@ final class ReviewService
                     ]);
 
                     $item->update(['status' => $to->value]);
+                    ItemTimeline::record($item->fresh(), $reviewer, ItemEventKind::Reviewed, $to->value, $note);
                 });
 
                 $updated[] = $id;

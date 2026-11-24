@@ -13,6 +13,15 @@ class StoreItemRequest extends FormRequest
         return true;
     }
 
+    protected function prepareForValidation(): void
+    {
+        foreach (['title', 'description', 'submitter_name'] as $field) {
+            if (is_string($this->input($field))) {
+                $this->merge([$field => trim($this->string($field)->toString())]);
+            }
+        }
+    }
+
     /**
      * Title/description caps match ContentLimits (same as the VARCHAR columns).
      *
@@ -21,8 +30,8 @@ class StoreItemRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'title' => ['required', 'string', 'max:'.ContentLimits::TITLE_MAX],
-            'description' => ['required', 'string', 'max:'.ContentLimits::DESCRIPTION_MAX],
+            'title' => ['required', 'string', 'min:'.ContentLimits::TITLE_MIN, 'max:'.ContentLimits::TITLE_MAX],
+            'description' => ['required', 'string', 'min:'.ContentLimits::DESCRIPTION_MIN, 'max:'.ContentLimits::DESCRIPTION_MAX],
             'submitter_name' => ['required', 'string', 'max:'.ContentLimits::NAME_MAX],
         ];
     }

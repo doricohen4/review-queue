@@ -1,4 +1,5 @@
 import type {
+  AuditKind,
   Confidence,
   FilterCatalog,
   FilterOption,
@@ -7,12 +8,14 @@ import type {
   LatestComment,
   Paginated,
   Review,
+  ReviewSnapshot,
   RiskLevel,
   Submitter,
 } from './api'
 
 const RISK_LEVELS = new Set<RiskLevel>(['low', 'medium', 'high', 'critical'])
 const CONFIDENCES = new Set<Confidence>(['low', 'medium', 'high'])
+const AUDIT_KINDS = new Set<AuditKind>(['submitted', 'revised', 'resubmitted', 'reviewed'])
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -126,7 +129,7 @@ export function parseItem(value: unknown): Item {
   }
 }
 
-/** Runtime check for ReviewResource (audit timeline). */
+/** Runtime check for GET /audit ItemEventResource rows. */
 export function parseReview(value: unknown): Review {
   if (!isRecord(value)) {
     fail('object')
@@ -134,12 +137,12 @@ export function parseReview(value: unknown): Review {
   if (typeof value.id !== 'number') {
     fail('id')
   }
-  if (typeof value.decision !== 'string' || value.decision === '') {
-    fail('decision')
+  if (typeof value.kind !== 'string' || !AUDIT_KINDS.has(value.kind as AuditKind)) {
+    fail('kind')
   }
-  const risk = value.risk === undefined || value.risk === null ? null : value.risk
-  if (risk !== null && (typeof risk !== 'string' || !RISK_LEVELS.has(risk as RiskLevel))) {
-    fail('risk')
+  const decision = value.decision === undefined || value.decision === null ? null : value.decision
+  if (decision !== null && typeof decision !== 'string') {
+    fail('decision')
   }
   const note = value.note === undefined || value.note === null ? null : value.note
   if (note !== null && typeof note !== 'string') {
@@ -149,13 +152,55 @@ export function parseReview(value: unknown): Review {
   if (created !== null && typeof created !== 'string') {
     fail('created_at')
   }
+  const actorValue = value.actor ?? value.reviewer
+  const actor = parseSubmitter(actorValue === null ? undefined : actorValue)
+
   return {
     id: value.id,
-    decision: value.decision,
-    risk: risk as RiskLevel | null,
+    kind: value.kind as AuditKind,
+    decision,
     note,
-    reviewer: parseSubmitter(value.reviewer === null ? undefined : value.reviewer),
+    snapshot: parseReviewSnapshot(value.snapshot),
+    actor,
     created_at: created,
+  }
+}
+
+function parseReviewSnapshot(value: unknown): ReviewSnapshot | null {
+  if (value === undefined || value === null) {
+    return null
+  }
+  if (!isRecord(value) || typeof value.title !== 'string' || typeof value.description !== 'string') {
+    fail('snapshot')
+  }
+  const risk = value.risk === undefined || value.risk === null ? null : value.risk
+  if (risk !== null && (typeof risk !== 'string' || !RISK_LEVELS.has(risk as RiskLevel))) {
+    fail('snapshot.risk')
+  }
+  const confidence =
+    value.confidence === undefined || value.confidence === null ? null : value.confidence
+  if (confidence !== null && (typeof confidence !== 'string' || !CONFIDENCES.has(confidence as Confidence))) {
+    fail('snapshot.confidence')
+  }
+  const suggested =
+    value.suggested_decision === undefined || value.suggested_decision === null
+      ? null
+      : value.suggested_decision
+  if (suggested !== null && typeof suggested !== 'string') {
+    fail('snapshot.suggested_decision')
+  }
+  const flags = value.flags === undefined || value.flags === null ? [] : value.flags
+  if (!Array.isArray(flags)) {
+    fail('snapshot.flags')
+  }
+  return {
+    title: value.title,
+    description: value.description,
+    risk: risk as RiskLevel | null,
+    risk_score: parseScore(value.risk_score),
+    flags: flags.map(parseFlag),
+    confidence: confidence as Confidence | null,
+    suggested_decision: suggested,
   }
 }
 

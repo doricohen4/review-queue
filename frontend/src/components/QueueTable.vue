@@ -72,7 +72,7 @@ function isSelected(id: number): boolean {
 </script>
 
 <template>
-  <div class="min-h-0 flex-1 space-y-3 overflow-auto md:hidden">
+  <div class="min-h-0 flex-1 space-y-3 overflow-auto xl:hidden">
     <label class="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-300">
       <input
         type="checkbox"
@@ -120,7 +120,7 @@ function isSelected(id: number): boolean {
   </div>
 
   <div
-    class="hidden min-h-0 flex-1 overflow-auto rounded-xl border border-zinc-200 bg-white md:block dark:border-zinc-800 dark:bg-zinc-900"
+    class="hidden min-h-0 flex-1 overflow-auto rounded-xl border border-zinc-200 bg-white xl:block dark:border-zinc-800 dark:bg-zinc-900"
   >
     <table
       class="w-full min-w-[1100px] table-fixed border-separate border-spacing-0 text-left text-sm"
@@ -280,11 +280,8 @@ function isSelected(id: number): boolean {
           </td>
           <td class="px-4 py-3"><StatusChip :status="item.status" /></td>
           <td class="px-4 py-3">
-            <div class="flex items-center gap-2">
-              <span class="w-6 tabular-nums text-zinc-500">{{ item.risk_score }}</span>
-              <StatusChip v-if="item.risk" :risk="item.risk" />
-              <span v-else class="text-zinc-400">—</span>
-            </div>
+            <StatusChip v-if="item.risk" :risk="item.risk" />
+            <span v-else class="text-zinc-400">—</span>
           </td>
           <td class="px-4 py-3 whitespace-nowrap text-zinc-500">
             {{ formatTimestamp(item.created_at) }}

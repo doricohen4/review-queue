@@ -1,58 +1,51 @@
 # Review Queue
 
-BrainPOP take-home: an educational content moderation queue. Submitters send classroom copy; reviewers approve, reject, or send work back. A heuristic scores the text at submit time; a human decides.
+BrainPOP take-home. People submit classroom copy; someone else reviews it — approve, reject, or send it back with a note. A small heuristic scores the text when it comes in. A human still decides.
 
-**Stack:** Laravel 13 · PHP 8.4+ · Vue 3 · TypeScript · SQLite · Pest · Vitest · Playwright (one smoke)
+I built this with Laravel 13, PHP 8.4, Vue 3, TypeScript, and SQLite. Tests are Pest, Vitest, and one Playwright smoke.
 
----
+I put the model, the API, and the trade-offs in [docs/TECHNICAL_DESIGN.md](docs/TECHNICAL_DESIGN.md). This file is how I run the demo.
 
-## Documentation
+You can run it two ways. I use PHP and Node on my machine when I am changing code. I use Docker when I want the whole stack without installing PHP.
 
-There is **one** writeup. This README is only how to run the demo.
+## Option 1 — PHP and Node on your machine
 
-| File | What it is |
-|---|---|
-| This README | Install, `make dev`, demo personas |
-| [docs/TECHNICAL_DESIGN.md](docs/TECHNICAL_DESIGN.md) | The full picture: persistence, data model, state machine, API, list query, HTTP layers, trade-offs, and the build tasks from the brief |
-
-Data model, endpoints, filters, transactions, cuts (`needs_work` vs `in_review`, PUT vs resubmit), and the task list live in the technical design — not duplicated here — so the choices stay in one organized place.
-
----
-
-## How to run
-
-### Local (PHP 8.4+ / Node 22+)
+You need PHP 8.4+ and Node 22+.
 
 ```bash
 make install
 make dev
 ```
 
-| Service | URL |
+That starts the API and the Vue app.
+
+| | |
 |---|---|
-| Frontend | http://localhost:5173 |
-| Backend API | http://localhost:8000/api |
+| App | http://localhost:5173 |
+| API | http://localhost:8000/api |
 | Health | http://localhost:8000/api/health |
 
 ```bash
 make test        # Pest + Vitest
-make e2e         # Playwright smoke (needs API + Vite; reuses `make dev` if already up)
-make lint        # Pint + ESLint
-make typecheck   # vue-tsc
-make fresh       # migrate:fresh --seed
+make e2e         # Playwright (needs the API and Vite; fine if `make dev` is already up)
+make lint
+make typecheck
+make fresh       # empty DB + seed
 ```
 
-### Docker
+## Option 2 — Docker
+
+You do not need PHP or Node installed. Docker Compose builds the API and the frontend.
 
 ```bash
 docker compose up --build
 ```
 
-The API container runs `migrate --seed` on boot. SQLite lives in a named volume.
+Same URLs as above. The API container migrates and seeds on boot. SQLite sits in a named volume so the queue survives a restart of the containers.
 
-### Demo identities
+## Who to click in the sidebar
 
-No password. Switch in the sidebar.
+I did not add passwords. These names only exist in the UI.
 
 | Name | Roles |
 |---|---|
@@ -61,6 +54,6 @@ No password. Switch in the sidebar.
 | Carol Williams | Reviewer |
 | Dana Cole | Both |
 
-Personas are client-only. The API still trusts `submitter_name` / `reviewer_name`. `same_person` blocks reviewing your own item.
+The API still takes the submitter and reviewer as names on the body. I still block you from reviewing your own item.
 
-Seed loads a mock queue so you can filter, open a panel, and review without submitting first.
+Seed already fills a queue, so you can filter and review without submitting first.

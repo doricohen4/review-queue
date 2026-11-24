@@ -40,13 +40,27 @@ export type Item = {
   updated_at: string | null
 }
 
-/** ReviewResource JSON (audit). */
+/** Heuristic + copy frozen at the moment of this grade. Null on rows created before snapshots. */
+export type ReviewSnapshot = {
+  title: string
+  description: string
+  risk: RiskLevel | null
+  risk_score: number
+  flags: HeuristicFlag[]
+  confidence: Confidence | null
+  suggested_decision: string | null
+}
+
+export type AuditKind = 'submitted' | 'revised' | 'resubmitted' | 'reviewed'
+
+/** ItemEventResource JSON (History tab). */
 export type Review = {
   id: number
-  decision: string
-  risk: RiskLevel | null
+  kind: AuditKind
+  decision: string | null
   note: string | null
-  reviewer?: Submitter
+  snapshot: ReviewSnapshot | null
+  actor?: Submitter
   created_at: string | null
 }
 

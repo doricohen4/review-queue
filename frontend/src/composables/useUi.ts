@@ -1,4 +1,5 @@
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
+import { activeModal as resolveModal, type ModalLayer } from '@/display/sheetA11y'
 import type { Item } from '@/types/api'
 
 export type EditorState =
@@ -8,8 +9,13 @@ export type EditorState =
 
 const editor = ref<EditorState>(null)
 const navOpen = ref(false)
+const panelMounted = ref(false)
 
 export function useUi() {
+  const activeModal = computed<ModalLayer>(() =>
+    resolveModal(panelMounted.value, editor.value !== null),
+  )
+
   function openSubmit(): void {
     editor.value = { mode: 'create', item: null }
     navOpen.value = false
@@ -24,5 +30,17 @@ export function useUi() {
     editor.value = null
   }
 
-  return { editor, navOpen, openSubmit, openEdit, closeEditor }
+  function setPanelMounted(open: boolean): void {
+    panelMounted.value = open
+  }
+
+  return {
+    editor,
+    navOpen,
+    activeModal,
+    openSubmit,
+    openEdit,
+    closeEditor,
+    setPanelMounted,
+  }
 }
