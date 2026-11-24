@@ -41,9 +41,9 @@ Three tables. A **review is not an item.** Everyday parallel: **student / homewo
 
 ```
 users     id, name, name_key UNIQUE
-items     title, description, submitter_id, status,
+items     title (120), description (5000), submitter_id, status,
           risk, risk_score, flags, confidence, suggested_decision
-reviews   item_id, reviewer_id, decision, risk, note, created_at
+reviews   item_id, reviewer_id, decision, risk, note (2000), created_at
 ```
 
 **Indexes** (Eloquent uses them; they do not replace `ItemQuery`): `items(status)`, `items(submitter_id)`, `items(created_at)`, `reviews(item_id)`.
@@ -148,19 +148,32 @@ Pest for domain + HTTP. Vitest for URL/composable logic. **One** Playwright spec
 
 ---
 
-## 8. Moving to production
+## 8. Production backlog (living)
 
-| Area | What changes |
-|---|---|
-| Database | `DB_CONNECTION=pgsql`, same migrations, pooling |
-| Auth | SSO; middleware sets `reviewer_name` the service already takes |
-| Queue claim (not a GitHub PR) | Later: `in_review` + `claimed_until` TTL so a stale “I’m looking at this” expires. **Not** in 6h. |
-| Bulk | Large batches: `202` + job; still tx-per-id inside the worker |
-| List | Same `ItemQuery` registry; extra filters register the same way |
-| Heuristic | Rules table or extra policy class |
-| Ops | Throttle; JSON logs; expand Playwright only if the UI stays the contract |
+What we **know we skipped** on purpose. Update this as we find more. Extension points already in code are marked *hook*.
 
-Out of scope until then: assignment (`assigned_to`), revision diffs, BFF.
+| ID | Finding | Now (6h) | Production |
+|---|---|---|---|
+| P1 | SQLite | File DB, ACID enough for demo | `DB_CONNECTION=pgsql`, pooling (PgBouncer), same migrations |
+| P2 | Names as identity | Personas / `name_key` | SSO (Sanctum/OIDC); middleware fills `reviewer_name` (*hook*) |
+| P3 | Soft claim | No `in_review` | `in_review` + `claimed_until` TTL + scheduled release |
+| P4 | Bulk size | Inline, tx-per-id, 200/207 | Large batches: `202` + job + progress; same loop inside the worker |
+| P5 | Keyword weights | Static hash map in `KeywordRule` | `moderation_rules` table / admin; inject map into the rule (*hook*) |
+| P6 | Profanity | `ProfanityRule` **empty** | Product-owned word list (not guessed in git) (*hook*) |
+| P7 | XSS | Flag `<script` / `javascript:` / `onerror=` | Real sanitizer on write; Vue **never** `v-html` on item text |
+| P8 | ML scoring | Keyword + structural + security | Extra `ModerationRule` (*hook*) |
+| P9 | Content size | Title 120 / description 5000 / note 2000 | Raise only via `ContentLimits` + migration |
+| P10 | i18n | English `reason` strings on flags | Store `reason_key`; client translates labels (`needs_work` stays snake_case in API) |
+| P11 | CORS | Open to `FRONTEND_URL` | Tighten origins, credentials if cookies |
+| P12 | Assignment | None | `assigned_to` + notify (mail/Slack) — not this timebox |
+| P13 | Resubmit diffs | Full new snapshot | `item_revisions` + timeline |
+| P14 | Attachments | None | Object storage (S3) |
+| P15 | Ops | App logs | Throttle submit/review; JSON logs + request ids; Sentry |
+| P16 | E2E | One Playwright smoke if time | Broader UI suite |
+| P17 | Cancel | Status in the map; endpoint may be cut | `POST .../cancel` if not shipped |
+| P18 | BFF | Direct SPA → API | Only if a second client needs a different shape |
+
+Do **not** treat this list as 6h work. Hooks: `ModerationPipeline::default()`, `ProfanityRule` constructor, `ContentLimits`, Eloquent.
 
 ---
 

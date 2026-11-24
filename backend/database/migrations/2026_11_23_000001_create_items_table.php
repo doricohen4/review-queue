@@ -1,5 +1,6 @@
 <?php
 
+use App\Domain\ContentLimits;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -10,8 +11,8 @@ return new class extends Migration
     {
         Schema::create('items', function (Blueprint $table) {
             $table->id();
-            $table->string('title', 120);
-            $table->text('description');
+            $table->string('title', ContentLimits::TITLE_MAX);
+            $table->string('description', ContentLimits::DESCRIPTION_MAX);
             $table->foreignId('submitter_id')->constrained('users');
             $table->string('status', 20)->default('pending');
             $table->string('risk', 10)->nullable();

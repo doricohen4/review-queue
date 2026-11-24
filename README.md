@@ -60,4 +60,4 @@ Scaffold only: health check, schema, demo seed, Makefile, Compose, Vue shell wit
 
 Heuristic pipeline, review API, and the full queue UI land in later slices. Seeded `risk_score` / `flags` are fixtures until `ModerationPipeline` exists.
 
-`TODO(prod):` real auth, Postgres, CORS tightening, `in_review` claim TTL.
+Production leftovers (auth, Postgres, claims, profanity list, sanitizer, …): [docs/TECHNICAL_DESIGN.md §8](docs/TECHNICAL_DESIGN.md#8-production-backlog-living).
