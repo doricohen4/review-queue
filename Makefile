@@ -1,4 +1,4 @@
-.PHONY: install dev test lint typecheck ci fresh
+.PHONY: install dev test lint typecheck ci fresh e2e
 
 install:
 	cd backend && composer install
@@ -22,6 +22,9 @@ lint:
 
 typecheck:
 	cd frontend && npm run type-check
+
+e2e:
+	cd frontend && npm run test:e2e
 
 ci:
 	cd backend && ./vendor/bin/pint --test

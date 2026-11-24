@@ -21,8 +21,20 @@ jobs:
       - name: PHP deps
         run: composer install --no-interaction --prefer-dist
         working-directory: backend
+      - name: App env
+        run: |
+          cp -n .env.example .env || true
+          php artisan key:generate --force
+          mkdir -p database && touch database/database.sqlite
+          php artisan migrate --seed --force
+        working-directory: backend
       - name: JS deps
         run: npm ci
         working-directory: frontend
       - name: CI
         run: make ci
+      - name: Playwright
+        run: |
+          npx playwright install --with-deps chromium
+          npm run test:e2e
+        working-directory: frontend

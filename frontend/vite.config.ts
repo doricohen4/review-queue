@@ -6,7 +6,9 @@ import vueDevTools from 'vite-plugin-vue-devtools'
 import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({
-  plugins: [vue(), vueDevTools(), tailwindcss()],
+  plugins: [vue(), process.env.PW ? null : vueDevTools(), tailwindcss()].filter(
+    (plugin): plugin is NonNullable<typeof plugin> => plugin !== null,
+  ),
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
