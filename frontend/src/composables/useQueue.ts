@@ -1,21 +1,25 @@
 import { computed, onMounted, ref, watch } from 'vue'
-import { fetchFilterCatalog, fetchItem, fetchItems } from '@/api/items'
+import { fetchFilterCatalog, fetchItem, fetchItems, reviewItems } from '@/api/items'
+import { usePersona } from '@/composables/usePersona'
 import { useQueryState } from '@/composables/useQueryState'
-import type { FilterCatalog, Item, Paginated } from '@/types/api'
+import type { FilterCatalog, Item, ItemPanelData, ItemTablePage } from '@/types/api'
 
 /**
  * Queue page data: list URL drives GET /api/items; `item=` drives GET /api/items/{id}.
  */
 export function useQueue() {
   const { state, patch } = useQueryState()
+  const { currentName } = usePersona()
 
-  const page = ref<Paginated<Item> | null>(null)
+  const page = ref<ItemTablePage | null>(null)
   const catalog = ref<FilterCatalog | null>(null)
   const catalogError = ref<string | null>(null)
   const error = ref<string | null>(null)
   const searchDraft = ref('')
-  const openItem = ref<Item | null>(null)
+  const openItem = ref<ItemPanelData | null>(null)
   const openError = ref<string | null>(null)
+  const reviewError = ref<string | null>(null)
+  const reviewPending = ref(false)
 
   const statusOptions = computed(() => catalog.value?.status ?? [])
   const selectedStatus = computed(() => state.value.filters.status ?? '')
@@ -105,6 +109,43 @@ export function useQueue() {
     void patch({ item: null })
   }
 
+  /** After submit, show the new row: jump to page 1 and open GET /api/items/{id}. */
+  function onCreated(item: Item): void {
+    void patch({ page: 1, item: String(item.id) }).then(async () => {
+      await loadItems()
+      await loadOpenItem()
+    })
+  }
+
+  /** POST /api/items/review as the header persona (Bob reviewing Alice's item). */
+  async function reviewOpen(payload: { decision: string; note: string | null }): Promise<void> {
+    if (openItem.value === null) {
+      return
+    }
+
+    reviewPending.value = true
+    reviewError.value = null
+    try {
+      const result = await reviewItems({
+        ids: [openItem.value.id],
+        decision: payload.decision,
+        risk: null,
+        note: payload.note,
+        reviewer_name: currentName.value,
+      })
+      if (result.meta.failed_count > 0) {
+        reviewError.value = result.data.failed[0]?.reason ?? 'Review failed'
+        return
+      }
+      await loadItems()
+      await loadOpenItem()
+    } catch (caught) {
+      reviewError.value = caught instanceof Error ? caught.message : 'Could not review'
+    } finally {
+      reviewPending.value = false
+    }
+  }
+
   function goToPage(next: number): void {
     if (page.value === null) {
       return
@@ -124,10 +165,14 @@ export function useQueue() {
     openId,
     openItem,
     openError,
+    reviewError,
+    reviewPending,
     applySearch,
     setStatus,
     openPanel,
     closePanel,
     goToPage,
+    onCreated,
+    reviewOpen,
   }
 }

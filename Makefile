@@ -1,4 +1,4 @@
-.PHONY: install dev test lint typecheck fresh
+.PHONY: install dev test lint typecheck ci fresh
 
 install:
 	cd backend && composer install
@@ -22,6 +22,11 @@ lint:
 
 typecheck:
 	cd frontend && npm run type-check
+
+ci:
+	cd backend && ./vendor/bin/pint --test
+	cd frontend && npm run ci
+	cd backend && ./vendor/bin/pest
 
 fresh:
 	cd backend && php artisan migrate:fresh --seed --force

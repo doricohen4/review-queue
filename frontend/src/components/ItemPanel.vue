@@ -1,17 +1,23 @@
-<script setup lang="ts">
+<script setup lang="ts" generic="TItem extends Item">
 import { computed } from 'vue'
+import ReviewActions from '@/components/ReviewActions.vue'
 import { flagLine, hasFlags, riskLabel } from '@/display/itemDisplay'
 import type { Item } from '@/types/api'
 
 const props = defineProps<{
-  item: Item | null
+  item: TItem | null
   itemId: string
   error: string | null
+  reviewError: string | null
+  reviewPending: boolean
 }>()
 
 const emit = defineEmits<{
   close: []
+  review: [payload: { decision: string; note: string | null }]
 }>()
+
+const canReview = computed(() => props.item?.status === 'pending')
 
 /** Status · risk · score — kept out of the template so the markup stays names only. */
 const summary = computed(() => {
@@ -36,6 +42,12 @@ const showFlags = computed(() => hasFlags(flags.value))
         <li v-for="flag in flags" :key="flag.key">{{ flagLine(flag) }}</li>
       </ul>
       <p v-else>No heuristic flags.</p>
+      <ReviewActions
+        v-if="canReview"
+        :pending="reviewPending"
+        :error="reviewError"
+        @review="emit('review', $event)"
+      />
     </template>
     <p v-else-if="error">{{ error }}</p>
     <p v-else>Loading item {{ itemId }}…</p>

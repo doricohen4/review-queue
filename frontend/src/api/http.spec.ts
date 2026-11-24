@@ -1,15 +1,15 @@
 import { describe, expect, it } from 'vitest'
-import { ApiError, getJson } from './http'
+import { ApiError, getResponse } from './http'
 
-describe('getJson', () => {
-  it('returns a typed JSON body', async () => {
+describe('getResponse', () => {
+  it('returns a typed response body', async () => {
     const fetcher: typeof fetch = async () =>
       new Response(JSON.stringify({ total: 2 }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
       })
 
-    await expect(getJson<{ total: number }>('/api/items', {}, fetcher)).resolves.toEqual({
+    await expect(getResponse<{ total: number }>('/api/items', {}, fetcher)).resolves.toEqual({
       total: 2,
     })
   })
@@ -17,6 +17,6 @@ describe('getJson', () => {
   it('throws ApiError when the response is not ok', async () => {
     const fetcher: typeof fetch = async () => new Response('nope', { status: 500 })
 
-    await expect(getJson('/api/items', {}, fetcher)).rejects.toBeInstanceOf(ApiError)
+    await expect(getResponse('/api/items', {}, fetcher)).rejects.toBeInstanceOf(ApiError)
   })
 })

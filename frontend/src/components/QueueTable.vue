@@ -1,15 +1,15 @@
-<script setup lang="ts">
+<script setup lang="ts" generic="TItem extends Item">
 import { personName, riskLabel } from '@/display/itemDisplay'
 import type { Item } from '@/types/api'
 
-/** One row per item; the title button writes `?item=` via the parent. */
+/** Queue table: `TItem` is one list row (ItemResource). */
 defineProps<{
-  items: Item[]
+  items: TItem[]
   openId: string | null
 }>()
 
 const emit = defineEmits<{
-  open: [item: Item]
+  open: [item: TItem]
 }>()
 </script>
 

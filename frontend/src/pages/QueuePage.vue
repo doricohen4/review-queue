@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import ItemPanel from '@/components/ItemPanel.vue'
 import QueueTable from '@/components/QueueTable.vue'
+import SubmitForm from '@/components/SubmitForm.vue'
 import { useQueue } from '@/composables/useQueue'
 
 const {
@@ -13,11 +14,15 @@ const {
   openId,
   openItem,
   openError,
+  reviewError,
+  reviewPending,
   applySearch,
   setStatus,
   openPanel,
   closePanel,
   goToPage,
+  onCreated,
+  reviewOpen,
 } = useQueue()
 </script>
 
@@ -46,6 +51,7 @@ const {
         <button type="submit">Search</button>
       </form>
     </header>
+    <SubmitForm @created="onCreated" />
 
     <p v-if="catalogError">{{ catalogError }}</p>
     <p v-if="error">{{ error }}</p>
@@ -59,7 +65,10 @@ const {
         :item="openItem"
         :item-id="openId"
         :error="openError"
+        :review-error="reviewError"
+        :review-pending="reviewPending"
         @close="closePanel"
+        @review="reviewOpen"
       />
     </div>
 

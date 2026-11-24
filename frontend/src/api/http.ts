@@ -11,27 +11,27 @@ export class ApiError extends Error {
   }
 }
 
-/** Typed JSON GET. Throws ApiError on non-OK so callers do not `as` ad hoc. */
-export async function getJson<T>(
+/** GET. `TResponse` is the parsed envelope (Item show, list page, health). */
+export async function getResponse<TResponse>(
   url: string,
   init: RequestInit = {},
   fetcher: typeof fetch = fetch,
-): Promise<T> {
+): Promise<TResponse> {
   const response = await fetcher(url, init)
 
   if (!response.ok) {
     throw new ApiError(response.status, await response.text())
   }
 
-  return (await response.json()) as T
+  return (await response.json()) as TResponse
 }
 
-/** Typed JSON POST with a JSON body. */
-export async function postJson<TBody, TRes>(
+/** POST. `TRequest` is the body; `TResponse` is the envelope. */
+export async function postRequest<TRequest, TResponse>(
   url: string,
-  body: TBody,
+  body: TRequest,
   fetcher: typeof fetch = fetch,
-): Promise<TRes> {
+): Promise<TResponse> {
   const response = await fetcher(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
@@ -42,5 +42,5 @@ export async function postJson<TBody, TRes>(
     throw new ApiError(response.status, await response.text())
   }
 
-  return (await response.json()) as TRes
+  return (await response.json()) as TResponse
 }

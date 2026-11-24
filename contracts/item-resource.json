@@ -1,0 +1,22 @@
+{
+  "id": 12,
+  "title": "Quiz",
+  "description": "Fractions",
+  "status": "pending",
+  "risk": "low",
+  "risk_score": 8,
+  "flags": [
+    {
+      "key": "keyword:password",
+      "weight": 40,
+      "reason": "password token"
+    }
+  ],
+  "confidence": "low",
+  "suggested_decision": "approve",
+  "submitter": {
+    "id": 1,
+    "name": "Alice Johnson"
+  },
+  "created_at": "2026-11-24T10:00:00+00:00"
+}

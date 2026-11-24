@@ -1,4 +1,4 @@
-import { getJson } from './http'
+import { getResponse } from './http'
 
 export type HealthResponse = {
   status: string
@@ -7,5 +7,5 @@ export type HealthResponse = {
 
 /** GET /api/health — used by the scaffold smoke test. */
 export function fetchHealth(fetcher: typeof fetch = fetch): Promise<HealthResponse> {
-  return getJson<HealthResponse>('/api/health', {}, fetcher)
+  return getResponse<HealthResponse>('/api/health', {}, fetcher)
 }
