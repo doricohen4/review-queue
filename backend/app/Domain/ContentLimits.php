@@ -19,4 +19,7 @@ final class ContentLimits
 
     /** Reviewer comment per cycle (needs_work note). */
     public const NOTE_MAX = 2000;
+
+    /** Persona display name / name_key — users.name VARCHAR. */
+    public const NAME_MAX = 60;
 }

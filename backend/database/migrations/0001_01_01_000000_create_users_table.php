@@ -1,5 +1,6 @@
 <?php
 
+use App\Domain\ContentLimits;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -10,8 +11,8 @@ return new class extends Migration
     {
         Schema::create('users', function (Blueprint $table) {
             $table->id();
-            $table->string('name', 60);
-            $table->string('name_key', 60)->unique();
+            $table->string('name', ContentLimits::NAME_MAX);
+            $table->string('name_key', ContentLimits::NAME_MAX)->unique();
             $table->timestamps();
         });
 

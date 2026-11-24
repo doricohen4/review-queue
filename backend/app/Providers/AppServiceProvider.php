@@ -2,21 +2,18 @@
 
 namespace App\Providers;
 
+use App\Domain\Moderation\ModerationPipeline;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
 {
-    /**
-     * Register any application services.
-     */
+    /** Bind the default moderation pipeline for ItemService. */
     public function register(): void
     {
-        //
+        $this->app->singleton(ModerationPipeline::class, fn () => ModerationPipeline::default());
     }
 
-    /**
-     * Bootstrap any application services.
-     */
+    /** App boot — unused in the demo. */
     public function boot(): void
     {
         //
