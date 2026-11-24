@@ -2,7 +2,7 @@
 
 Laravel 13 API · Vue 3 SPA · SQLite (Postgres later). Runbook: [README](../README.md). Product/stretch UI: [PRODUCT_README](PRODUCT_README.md). Timebox: **6 hours**.
 
-The brief asks for **data model, API, and persistence — choices and trade-offs**. Those are §1–2 and §4. List query is §4. HTTP layers §5. Production §8.
+The brief asks for **data model, API, and persistence — choices and trade-offs**. Those are §1–2 and §4. List query is §4. HTTP layers §5. Production §8. Build order is §9 (~12 commits).
 
 ---
 
@@ -48,6 +48,8 @@ reviews   item_id, reviewer_id, decision, risk, note, created_at
 
 **Indexes** (Eloquent uses them; they do not replace `ItemQuery`): `items(status)`, `items(submitter_id)`, `items(created_at)`, `reviews(item_id)`.
 
+**Hash maps (O(1) by key):** PHP associative arrays, not a special library. (1) `TRANSITIONS[$from]` — legal next statuses without scanning every rule. (2) Heuristic `keyword => weight` so each token is a lookup, not a loop over the whole dictionary. (3) Bulk review: `Item::findMany($ids)->keyBy('id')` so each id is O(1), not “scan the collection for every id.” List filtering is SQL + **indexes**, not an in-memory map.
+
 | Choice | Why / trade-off |
 |---|---|
 | Separate `reviews` | `needs_work` can happen more than once; a column on `items` would wipe history |
@@ -68,7 +70,7 @@ pending ──► approved | rejected     terminal
 pending ──► cancelled               terminal (submitter withdraws)
 ```
 
-Illegal moves **throw**. One `TRANSITIONS` array. `needs_work → pending` is the only reopen. No `in_review` in the demo map.
+Illegal moves **throw**. One `TRANSITIONS` **hash map**: key = current status (O(1) lookup), value = allowed next statuses (a tiny list). Empty value `[]` = **terminal** — zero legal moves, not “anything goes.” `needs_work → pending` is the only reopen. No `in_review` in the demo map.
 
 ---
 
@@ -134,11 +136,15 @@ Route → FormRequest → Controller
 
 ---
 
-## 7. Tests (sanity, not a 2h E2E suite)
+## 7. Tests — TDD
 
-The UI **is** the demo, so a **full** Playwright pass would be nice — it does not fit 6h with heuristic + state machine + `ItemQuery`.
+Every §9 task is **red → green → refactor**.
 
-**Choice:** Pest (API, `ItemQuery` 422 on unknown filters, tx-per-id **200 vs 207**) + Vitest (composables / URL state) + **one Playwright spec**: submit → appears in filtered queue → `needs_work` or approve. That is a sanity net on the path a reviewer clicks, not coverage of every filter combo.
+1. **Red** — write the Pest/Vitest in the “Red first” column; run it; it **fails**.
+2. **Green** — implement only enough to pass.
+3. **Refactor** — tidy with tests still green; then commit.
+
+Pest for domain + HTTP. Vitest for URL/composable logic. **One** Playwright spec (task 12) after the UI exists — not instead of unit/feature tests.
 
 ---
 
@@ -155,3 +161,28 @@ The UI **is** the demo, so a **full** Playwright pass would be nice — it does 
 | Ops | Throttle; JSON logs; expand Playwright only if the UI stays the contract |
 
 Out of scope until then: assignment (`assigned_to`), revision diffs, BFF.
+
+---
+
+## 9. Build tasks (one git commit each)
+
+About **12** commits. **Red test first** for 2–12, then green, then commit. Skip 11–12 if the clock dies.
+
+| # | Commit | Red first (failing test) | Then build | Done when |
+|---|---|---|---|---|
+| 1 | `feat: scaffold` | — | Already on `main` | ✅ |
+| 2 | `feat: domain — ItemStatus + transitions` | Pest: `pending → approved` OK; `approved → pending` throws. No `in_review`. | Enum + `ItemStateMachine` | Illegal edges throw |
+| 3 | `feat: domain — ModerationPipeline` | Pest: text with `password` scores ≥ 60 + a flag | Policies + `evaluate()` | Score, flags, suggestion |
+| 4 | `feat: list — ItemQuery + GET /api/items` | Pest: `filter[status]=pending`; unknown `filter[foo]` → **422**; `panel` OK | Registry, Resource, `GET /filters` | Pagination `data`/`meta` |
+| 5 | `feat: submit — POST /api/items` | Pest: 201; item has `risk_score` / `flags` from pipeline | FormRequest + `ItemService::submit` | Heuristic snapshot stored |
+| 6 | `feat: review — POST /api/items/review` | Pest: one id → **200**, `failed=[]`; mixed ids → **207** + `failed[]`; `same_person` | Tx-per-id, try/catch | Envelope `data` + `meta` |
+| 7 | `feat: needs_work — note + resubmit + audit` | Pest: `needs_work` without note → **422**; with note + resubmit → two audit rows | Required note, resubmit, `GET .../audit` | Comments per cycle |
+| 8 | `feat: frontend — queue + URL state` | Vitest: `useQueryState` parse/serialize `q` + `filter[status]` | Queue, panel, `getJson<T>` | Filter URL + open panel |
+| 9 | `feat: frontend — submit + personas` | Vitest or component: submit posts `submitter_name` | Form + Alice/Bob/Carol | Submit as Alice, review as Bob |
+| 10 | `feat: stretch — bulk + optimistic UI` | Vitest: 207 rolls back **only** `failed[]` | Multi-select; same review endpoint | One stretch only |
+| 11 | `feat: cancel` | Pest: pending → cancelled | `POST .../cancel` or **cut** | Inbox drops the item |
+| 12 | `test: Playwright smoke` | Spec written first; fails until UI exists | One path: submit → queue → review | Not a full E2E suite |
+
+**Not separate commits:** Docker, pagination-as-stretch, `in_review`, atoms-only folders, extra README files.
+
+After 7 the API matches the brief. After 9 the UI does. 10 is extra if 9 works. Fold brief README sections into root `README.md` in commit 10 or a small `docs:` commit — do **not** keep a long `PRODUCT_README`.
