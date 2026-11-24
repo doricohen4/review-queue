@@ -1,14 +1,38 @@
+export type PersonaRole = 'submitter' | 'reviewer'
+
+/** A person can hold both roles; `same_person` still blocks reviewing your own item. */
 export type Persona = {
   name: string
-  role: 'submitter' | 'reviewer'
+  roles: PersonaRole[]
 }
 
 /** Seed demo people. No login — the header picker is identity. */
 export const PERSONAS: Persona[] = [
-  { name: 'Alice Johnson', role: 'submitter' },
-  { name: 'Bob Smith', role: 'reviewer' },
-  { name: 'Carol Williams', role: 'reviewer' },
+  { name: 'Alice Johnson', roles: ['submitter'] },
+  { name: 'Bob Smith', roles: ['reviewer'] },
+  { name: 'Carol Williams', roles: ['reviewer'] },
+  { name: 'Dana Cole', roles: ['submitter', 'reviewer'] },
 ]
+
+export function personaByName(name: string): Persona | undefined {
+  return PERSONAS.find((persona) => persona.name === name)
+}
+
+export function hasRole(persona: Persona | undefined, role: PersonaRole): boolean {
+  return persona?.roles.includes(role) === true
+}
+
+export function canSubmitAs(name: string): boolean {
+  return hasRole(personaByName(name), 'submitter')
+}
+
+export function canReviewAs(name: string): boolean {
+  return hasRole(personaByName(name), 'reviewer')
+}
+
+export function roleLabel(persona: Persona | undefined): string {
+  return (persona?.roles ?? []).join(' · ')
+}
 
 export const TITLE_MAX = 120
 export const DESCRIPTION_MAX = 5000

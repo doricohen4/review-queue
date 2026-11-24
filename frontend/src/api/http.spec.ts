@@ -19,4 +19,20 @@ describe('getResponse', () => {
 
     await expect(getResponse('/api/items', {}, fetcher)).rejects.toBeInstanceOf(ApiError)
   })
+
+  it('uses the Laravel validation message instead of Request failed: 422', async () => {
+    const fetcher: typeof fetch = async () =>
+      new Response(
+        JSON.stringify({
+          message: 'The note field is required.',
+          errors: { note: ['The note field is required.'] },
+        }),
+        { status: 422, headers: { 'Content-Type': 'application/json' } },
+      )
+
+    await expect(getResponse('/api/items/review', {}, fetcher)).rejects.toMatchObject({
+      status: 422,
+      message: 'The note field is required.',
+    })
+  })
 })

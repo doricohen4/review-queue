@@ -17,19 +17,27 @@ export type Submitter = {
   name: string
 }
 
+/** Newest review note left on an item. Null when nobody wrote one. */
+export type LatestComment = {
+  note: string
+  reviewer_name: string | null
+}
+
 /** ItemResource JSON (list, show, submit). */
 export type Item = {
   id: number
   title: string
   description: string
-  status: ItemStatus
+  status: ItemStatus | string
   risk: RiskLevel | null
   risk_score: number
   flags: HeuristicFlag[]
   confidence: Confidence | null
   suggested_decision: string | null
   submitter?: Submitter
+  latest_comment: LatestComment | null
   created_at: string | null
+  updated_at: string | null
 }
 
 /** ReviewResource JSON (audit). */
@@ -76,4 +84,5 @@ export type FilterCatalog = {
   status: FilterOption[]
   risk: FilterOption[]
   sort: FilterOption[]
+  submitter: FilterOption[]
 }

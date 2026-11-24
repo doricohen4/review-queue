@@ -10,6 +10,89 @@ export type QueryState = {
 const DEFAULT_SORT = '-created_at'
 const DEFAULT_PER_PAGE = 15
 
+export type SortColumn = 'title' | 'created_at' | 'updated_at' | 'risk_score'
+
+/**
+ * `filter[status]=pending,needs_work` is one URL param (OR on the API).
+ * Empty string = all options. `__none__` is explicit “nothing selected” (empty list),
+ * because omitting the param also means “all”.
+ */
+export const FILTER_NONE = '__none__'
+
+export function splitFilterValues(raw: string): string[] {
+  if (raw === FILTER_NONE) {
+    return []
+  }
+  return raw
+    .split(',')
+    .map((part) => part.trim())
+    .filter((part) => part !== '')
+}
+
+/** Empty URL filter means every option is on. `__none__` means every option is off. */
+export function selectedFilterSet(raw: string, allValues: string[]): string[] {
+  if (raw === FILTER_NONE) {
+    return []
+  }
+  if (raw === '') {
+    return [...allValues]
+  }
+  return splitFilterValues(raw)
+}
+
+export function isAllFiltersSelected(raw: string, allValues: string[]): boolean {
+  if (raw === FILTER_NONE) {
+    return false
+  }
+  if (raw === '') {
+    return true
+  }
+  if (allValues.length === 0) {
+    return false
+  }
+  const selected = new Set(splitFilterValues(raw))
+  return allValues.every((value) => selected.has(value))
+}
+
+function serializeFilterSet(selected: Set<string>, allValues: string[]): string {
+  if (selected.size === 0) {
+    return FILTER_NONE
+  }
+  if (allValues.length > 0 && allValues.every((value) => selected.has(value))) {
+    return ''
+  }
+  return allValues.filter((value) => selected.has(value)).join(',')
+}
+
+export function toggleAllFilterValues(raw: string, allValues: string[]): string {
+  return isAllFiltersSelected(raw, allValues) ? FILTER_NONE : ''
+}
+
+export function toggleFilterValue(raw: string, value: string, allValues: string[] = []): string {
+  if (value === '') {
+    return toggleAllFilterValues(raw, allValues)
+  }
+  const next = new Set(selectedFilterSet(raw, allValues))
+  if (next.has(value)) {
+    next.delete(value)
+  } else {
+    next.add(value)
+  }
+  return serializeFilterSet(next, allValues)
+}
+
+/** Click a table header: first click uses the column default, then flip asc/desc. */
+export function toggleSortKey(current: string, column: SortColumn): string {
+  const desc = `-${column}`
+  if (current === column) {
+    return desc
+  }
+  if (current === desc) {
+    return column
+  }
+  return column === 'title' ? column : desc
+}
+
 /**
  * Read the list URL into queue state.
  * filter[status]=pending becomes filters.status — Vue Router keeps the brackets as the key.

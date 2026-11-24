@@ -1,8 +1,8 @@
-import type { FilterCatalog, Item, ItemTablePage, ResourceResponse } from '@/types/api'
-import { parseItem, parsePaginated } from '@/types/parseApi'
+import type { FilterCatalog, Item, ItemTablePage, ResourceResponse, Review } from '@/types/api'
+import { parseFilterCatalog, parseItem, parsePaginated, parseReview } from '@/types/parseApi'
 import type { QueryState } from '@/query/queryState'
 import { serializeQueryState } from '@/query/queryState'
-import { getResponse, postRequest } from './http'
+import { getResponse, postRequest, putRequest } from './http'
 
 export type SubmitItemBody = {
   title: string
@@ -50,6 +50,20 @@ export async function fetchItem(id: number, fetcher: typeof fetch = fetch): Prom
   return parseItem(payload.data)
 }
 
+/** PUT /api/items/{id} — submitter edits needs_work copy; status returns to pending. */
+export async function updateItem(
+  id: number,
+  body: SubmitItemBody,
+  fetcher: typeof fetch = fetch,
+): Promise<Item> {
+  const payload = await putRequest<SubmitItemBody, ResourceResponse<unknown>>(
+    `/api/items/${id}`,
+    body,
+    fetcher,
+  )
+  return parseItem(payload.data)
+}
+
 /** POST /api/items — unwraps `{ data }` so the form gets an Item. */
 export async function submitItem(
   body: SubmitItemBody,
@@ -63,6 +77,12 @@ export async function submitItem(
   return parseItem(payload.data)
 }
 
+/** GET /api/items/{id}/audit — review notes, oldest first. */
+export async function fetchAudit(id: number, fetcher: typeof fetch = fetch): Promise<Review[]> {
+  const payload = await getResponse<unknown>(`/api/items/${id}/audit?per_page=50`, {}, fetcher)
+  return parsePaginated(payload, parseReview).data
+}
+
 /** POST /api/items/review — one id today; same envelope as bulk. */
 export function reviewItems(
   body: ReviewItemsBody,
@@ -73,9 +93,6 @@ export function reviewItems(
 
 /** GET /api/items/filters — toolbar options from ItemQuery's registry. */
 export async function fetchFilterCatalog(): Promise<FilterCatalog> {
-  const payload = await getResponse<ResourceResponse<FilterCatalog>>('/api/items/filters')
-  if (payload.data?.status === undefined) {
-    throw new Error('Filter catalog missing')
-  }
-  return payload.data
+  const payload = await getResponse<unknown>('/api/items/filters')
+  return parseFilterCatalog(payload)
 }
