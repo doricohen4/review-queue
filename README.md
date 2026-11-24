@@ -50,14 +50,10 @@ docker compose up --build
 
 The API container runs `migrate --seed` on boot. SQLite lives in a named volume.
 
-**Demo identities** (no password): Alice Johnson (submitter), Bob Smith / Carol Williams (reviewers). Seed also creates extra submitters and **eight mockup items**.
+**Demo identities** (no password): Alice Johnson (submitter), Bob Smith / Carol Williams (reviewers), Dana Cole (both). Seed loads a fuller mock queue. `same_person` still blocks reviewing your own item.
 
 ---
 
-## Slice 1 status
+## Status
 
-Scaffold only: health check, schema, demo seed, Makefile, Compose, Vue shell with atomic folders.
-
-Heuristic pipeline, review API, and the full queue UI land in later slices. Seeded `risk_score` / `flags` are fixtures until `ModerationPipeline` exists.
-
-Production leftovers (auth, Postgres, claims, profanity list, sanitizer, …): [docs/TECHNICAL_DESIGN.md §8](docs/TECHNICAL_DESIGN.md#8-production-backlog-living).
+Queue API + Vue UI are in: submit, review (including bulk + optimistic), `needs_work` revise, URL filters. **Not shipped:** cancel HTTP, Playwright smoke. Production leftovers: [docs/TECHNICAL_DESIGN.md §8](docs/TECHNICAL_DESIGN.md#8-production-backlog-living). Build table: [§9](docs/TECHNICAL_DESIGN.md#9-build-tasks-one-git-commit-each).

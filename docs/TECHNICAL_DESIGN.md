@@ -66,39 +66,41 @@ Brief minimum is **pending vs reviewed**. Split reviewed into `approved` / `reje
 
 ```
 pending ──► approved | rejected     terminal
-        └──► needs_work ──► pending  resubmit (note required)
-pending ──► cancelled               terminal (submitter withdraws)
+        └──► needs_work ──► pending  resubmit / PUT revise (note already on the review)
+pending ──► cancelled               terminal (in the map; HTTP cancel was cut)
 ```
 
-Illegal moves **throw**. One `TRANSITIONS` **hash map**: key = current status (O(1) lookup), value = allowed next statuses (a tiny list). Empty value `[]` = **terminal** — zero legal moves, not “anything goes.” `needs_work → pending` is the only reopen. No `in_review` in the demo map.
+Illegal moves **throw**. One `TRANSITIONS` **hash map**: key = current status (O(1) lookup), value = allowed next statuses (a tiny list). Empty value `[]` = **terminal** — zero legal moves, not “anything goes.” `needs_work → pending` is the only reopen. No `in_review` in the demo map. `PUT /api/items/{id}` is **content revise** (author, pending or needs_work), not a review decision.
 
 ---
 
 ## 4. API + list query (do not thin this)
 
-**Choice:** REST under `/api`. Queue is **one GET**; **URL is the view** (`q`, `filter[]`, dates, `sort`, `page`, `panel`). Review is **one POST command** (`ids[]`) — not `PUT` on the item.
+**Choice:** REST under `/api`. Queue is **one GET**; **URL is the view** (`q`, `filter[]`, dates, `sort`, `page`, `item`). Review is **one POST command** (`ids[]`) — not `PUT` for the decision. `PUT` is only for the submitter editing copy.
 
 ```
 GET  /api/items                 see ItemQuery below
 POST /api/items                 submit (heuristic)
 GET  /api/items/filters         options for the toolbar (not hard-coded in Vue)
 POST /api/items/review          { ids, decision, risk, note, reviewer_name }
-POST /api/items/{id}/resubmit
-POST /api/items/{id}/cancel
-GET  /api/items/{id}/audit
-GET  /api/users?q=
+GET  /api/items/{id}            panel row (+ latest_comment)
+PUT  /api/items/{id}            author revise (pending in place, or needs_work → pending)
+POST /api/items/{id}/resubmit   same reopen as PUT when already needs_work
+GET  /api/items/{id}/audit      append-only review notes
 ```
 
-**`ItemQuery` (filter registry):** Eloquent + indexes are the engine; **allow-listed filters** are the contract. Unknown `filter[]` / `sort` keys → **`422`** (safer to test than silent ignore). Ignore only UI-only params (`panel`). Do not ad-hoc `if ($request->has)` in the controller.
+**Cut:** `POST .../cancel`, `GET /api/users?q=`. Personas are client-side names, not a users search API.
+
+**`ItemQuery` (filter registry):** Eloquent + indexes are the engine; **allow-listed filters** are the contract. Unknown `filter[]` / `sort` keys → **`422`** (safer to test than silent ignore). Ignore only UI-only params (`item`). Do not ad-hoc `if ($request->has)` in the controller.
 
 | Param | Meaning |
 |---|---|
 | `q` | Title/description search |
-| `filter[status]`, `filter[risk]`, `filter[submitter]` | Exact / id |
-| `filter[created_after]`, `filter[created_before]` | Date range on `items.created_at` |
-| `sort` | Allow-listed columns only (e.g. `-created_at`) |
+| `filter[status]`, `filter[risk]`, `filter[submitter]` | One value or comma-OR (`pending,needs_work`) / ids |
+| `filter[created_after]`, `filter[created_before]` | Inclusive calendar-day range on `items.created_at` |
+| `sort` | Allow-listed columns only (e.g. `-created_at`, `-updated_at`) |
 | `page` | Pagination; `meta.total`, `current_page`, `last_page` always present |
-| `panel` | UI-only (open item); not a SQL filter |
+| `item` | UI-only (open panel); not a SQL filter |
 
 Adding a filter = register it on `ItemQuery` + a Pest list test + toolbar control. Same registry feeds `GET /api/items/filters`.
 
@@ -120,7 +122,7 @@ Route → FormRequest → Controller
 
 **`ItemQuery`:** read model. Allow-list `filter[]` / dates / sort; apply indexes via Eloquent. List does **not** go through `ItemService`.
 
-**Service** (`ItemService::submit`, `ReviewService::review`): user by `name_key`, pipeline, `assertTransition`, `same_person`, **tx-per-id** for bulk.
+**Service** (`ItemService::submit` / `revise` / `resubmit`, `ReviewService::review`): user by `name_key`, pipeline, `assertTransition`, `same_person`, **tx-per-id** for bulk.
 
 ---
 
@@ -129,10 +131,10 @@ Route → FormRequest → Controller
 | Ship | Cut in this timebox | Why |
 |---|---|---|
 | SQLite + tx-per-id bulk | Postgres in Compose | `.env` swap later |
-| `needs_work` (+ `cancelled` if time) | `in_review` / claim TTL; cancel is the next cut | Send-back > withdraw > soft claim |
+| `needs_work` (cancel **cut**) | `in_review` / claim TTL; `POST .../cancel` | Send-back > withdraw > soft claim |
 | `ItemQuery` registry + URL state | Thinner `?status=` only list | Interview + real queue UX |
-| Pest + Vitest + **one Playwright smoke** | Full Playwright suite | See tests below |
-| Bulk `ids[]` | Auth, attachments, ML | One stretch |
+| Pest + Vitest | Playwright smoke (task 12, not shipped) | See tests below |
+| Bulk `ids[]` + optimistic UI | Auth, attachments, ML | Stretch **shipped** |
 
 ---
 
@@ -169,9 +171,11 @@ What we **know we skipped** on purpose. Update this as we find more. Extension p
 | P13 | Resubmit diffs | Full new snapshot | `item_revisions` + timeline |
 | P14 | Attachments | None | Object storage (S3) |
 | P15 | Ops | App logs | Throttle submit/review; JSON logs + request ids; Sentry |
-| P16 | E2E | One Playwright smoke if time | Broader UI suite |
-| P17 | Cancel | Status in the map; endpoint may be cut | `POST .../cancel` if not shipped |
+| P16 | E2E | Pest + Vitest only | One Playwright smoke (task 12) then a broader UI suite |
+| P17 | Cancel | Status in the map; **no** `POST .../cancel` | Withdraw endpoint + inbox drop |
 | P18 | BFF | Direct SPA → API | Only if a second client needs a different shape |
+| P19 | Roles | Vue personas (`roles[]`); API still trusts `*_name` | Real authz on submit vs review |
+| P20 | Pinia | Theme only; queue state is the URL + `useQueue` | Extra stores only if URL is no longer the view |
 
 Do **not** treat this list as 6h work. Hooks: `ModerationPipeline::default()`, `ProfanityRule` constructor, `ContentLimits`, Eloquent.
 
@@ -191,11 +195,13 @@ About **12** commits. **Red test first** for 2–12, then green, then commit. Sk
 | 6 | `feat: review — POST /api/items/review` | Pest: one id → **200**, `failed=[]`; mixed ids → **207** + `failed[]`; `same_person` | Tx-per-id, try/catch | Envelope `data` + `meta` |
 | 7 | `feat: needs_work — note + resubmit + audit` | Pest: `needs_work` without note → **422**; with note + resubmit → two audit rows | Required note, resubmit, `GET .../audit` | Comments per cycle |
 | 8 | `feat: frontend — queue + URL state` | Vitest: `useQueryState` parse/serialize `q` + `filter[status]` | Queue, panel, `getJson<T>` | Filter URL + open panel |
-| 9 | `feat: frontend — submit + personas` | Vitest or component: submit posts `submitter_name` | Form + Alice/Bob/Carol | Submit as Alice, review as Bob |
-| 10 | `feat: stretch — bulk + optimistic UI` | Vitest: 207 rolls back **only** `failed[]` | Multi-select; same review endpoint | One stretch only |
-| 11 | `feat: cancel` | Pest: pending → cancelled | `POST .../cancel` or **cut** | Inbox drops the item |
-| 12 | `test: Playwright smoke` | Spec written first; fails until UI exists | One path: submit → queue → review | Not a full E2E suite |
+| 9 | `feat: frontend — submit + personas` | Vitest or component: submit posts `submitter_name` | Form + Alice/Bob/Carol | Submit as Alice, review as Bob | ✅ |
+| 10 | `feat: stretch — bulk + optimistic UI` | Vitest: 207 rolls back **only** `failed[]` | Multi-select; same review endpoint | One stretch only | ✅ |
+| 11 | `feat: cancel` | Pest: pending → cancelled | **Cut** — no HTTP cancel | Status remains in the map (P17) |
+| 12 | `test: Playwright smoke` | Spec written first; fails until UI exists | **Not shipped** | P16 |
 
-**Not separate commits:** Docker, pagination-as-stretch, `in_review`, atoms-only folders, extra README files.
+**Landed after 9–10 (QA):** `GET /api/items/{id}`, `PUT` revise, comma-OR filters, `latest_comment`, dual-role persona (Dana), editor modal, toasts. Same rules: no `in_review`, URL is the view, review stays `POST .../review`.
 
-After 7 the API matches the brief. After 9 the UI does. 10 is extra if 9 works. Fold brief README sections into root `README.md` in commit 10 or a small `docs:` commit — do **not** keep a long `PRODUCT_README`.
+**Not separate commits:** Docker, pagination-as-stretch, `in_review`, atoms-only folders. `docs/PRODUCT_README.md` is still a long product writeup — fold into root `README.md` when cutting docs.
+
+After 7 the API matches the brief. After 9 the UI does. 10 (bulk + optimistic) shipped. 11–12 are the remaining build-table rows.
