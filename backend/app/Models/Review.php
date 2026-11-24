@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 #[Fillable(['item_id', 'reviewer_id', 'decision', 'risk', 'note'])]
 class Review extends Model
 {
-    public $timestamps = false;
+    public const UPDATED_AT = null;
 
     /** The queue row this decision is about. */
     public function item(): BelongsTo

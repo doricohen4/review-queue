@@ -7,5 +7,6 @@ use Illuminate\Support\Facades\Route;
 Route::get('/health', HealthController::class);
 
 Route::get('/items/filters', [ItemController::class, 'filters']);
+Route::post('/items/review', [ItemController::class, 'review']);
 Route::get('/items', [ItemController::class, 'index']);
 Route::post('/items', [ItemController::class, 'store']);

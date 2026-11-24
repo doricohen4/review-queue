@@ -3,9 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Http\Queries\ItemQuery;
+use App\Http\Requests\ReviewItemsRequest;
 use App\Http\Requests\StoreItemRequest;
 use App\Http\Resources\ItemResource;
 use App\Services\ItemService;
+use App\Services\ReviewService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -41,5 +43,30 @@ class ItemController extends Controller
         return (new ItemResource($item))
             ->response()
             ->setStatusCode(Response::HTTP_CREATED);
+    }
+
+    /** POST /api/items/review — 200 if all ids succeed, 207 if any failed[]. */
+    public function review(ReviewItemsRequest $request, ReviewService $service): JsonResponse
+    {
+        $result = $service->review(
+            $request->validated('ids'),
+            $request->validated('decision'),
+            $request->validated('risk'),
+            $request->validated('note'),
+            $request->validated('reviewer_name'),
+        );
+
+        $failedCount = count($result['failed']);
+
+        return response()->json([
+            'data' => [
+                'updated' => $result['updated'],
+                'failed' => $result['failed'],
+            ],
+            'meta' => [
+                'updated_count' => count($result['updated']),
+                'failed_count' => $failedCount,
+            ],
+        ], $failedCount > 0 ? 207 : Response::HTTP_OK);
     }
 }
