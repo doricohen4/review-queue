@@ -2,7 +2,7 @@
 
 BrainPOP take-home: an educational content moderation queue. Submitters send classroom copy; reviewers approve, reject, or send work back. A heuristic scores the text at submit time; a human decides.
 
-**Stack:** Laravel 13 · PHP 8.3+ · Vue 3 · TypeScript · SQLite · Pest · Vitest · Playwright (one smoke)
+**Stack:** Laravel 13 · PHP 8.4+ · Vue 3 · TypeScript · SQLite · Pest · Vitest · Playwright (one smoke)
 
 ---
 
@@ -21,7 +21,7 @@ Data model, endpoints, filters, transactions, cuts (`needs_work` vs `in_review`,
 
 ## How to run
 
-### Local (PHP 8.3+ / Node 22+)
+### Local (PHP 8.4+ / Node 22+)
 
 ```bash
 make install
