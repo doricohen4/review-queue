@@ -20,7 +20,7 @@ test('submit appears in the queue and a reviewer can approve it', async ({ page 
   await expect(page.getByTestId('persona-select')).toContainText('Bob Smith')
 
   await row.click()
-  await page.getByRole('button', { name: 'Approve' }).click()
+  await page.getByRole('button', { name: 'Approve', exact: true }).click()
 
   await expect(row.getByText('approved', { exact: true })).toBeVisible()
 })
